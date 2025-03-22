@@ -117,7 +117,7 @@ export const interviewService = {
   /**
    * Create or update an interview template
    */
-  createTemplate(template: Omit<OrganizationTemplate, "id">): OrganizationTemplate {
+  createTemplate(template: Partial<OrganizationTemplate> & { name: string; role: string; description: string; rules: string; questions: string[] }): OrganizationTemplate {
     const newTemplate: OrganizationTemplate = {
       ...template,
       id: template.id || generateSessionId(),
@@ -192,4 +192,3 @@ export const interviewService = {
 export const generateSessionId = (): string => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
-

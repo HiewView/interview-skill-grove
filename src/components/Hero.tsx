@@ -1,9 +1,15 @@
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 
-const Hero: React.FC = () => {
+interface HeroProps {
+  title: string;
+  subtitle: string;
+  cta: ReactNode;
+}
+
+const Hero: React.FC<HeroProps> = ({ title, subtitle, cta }) => {
   return (
     <section className="relative pt-32 pb-20 md:py-40 overflow-hidden">
       {/* Background Elements */}
@@ -17,27 +23,15 @@ const Hero: React.FC = () => {
           </div>
           
           <h1 className="font-medium text-4xl md:text-5xl lg:text-6xl bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/80 animate-in slide-in-from-bottom-5 duration-500 mb-6">
-            Elevate Your Interview Experience
+            {title}
           </h1>
           
           <p className="text-lg md:text-xl text-foreground/70 max-w-2xl mb-10 animate-in slide-in-from-bottom-6 duration-700">
-            Practice and perfect your interview skills with our AI-driven platform. 
-            Receive real-time feedback and comprehensive assessments to help you succeed.
+            {subtitle}
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center gap-4 animate-in slide-in-from-bottom-7 duration-1000">
-            <Link to="/dashboard" className="btn-primary group w-full sm:w-auto">
-              <span className="flex items-center justify-center gap-2">
-                Start as Candidate
-                <ChevronRight size={18} className="transform group-hover:translate-x-1 transition-transform" />
-              </span>
-            </Link>
-            <Link to="/dashboard" className="btn-outline group w-full sm:w-auto">
-              <span className="flex items-center justify-center gap-2">
-                Start as Organization
-                <ChevronRight size={18} className="transform group-hover:translate-x-1 transition-transform" />
-              </span>
-            </Link>
+          <div className="animate-in slide-in-from-bottom-7 duration-1000">
+            {cta}
           </div>
         </div>
       </div>
