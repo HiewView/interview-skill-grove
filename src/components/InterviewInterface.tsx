@@ -1,25 +1,57 @@
 
-import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mic, MicOff, AlertCircle, Send } from 'lucide-react';
+import { toast } from "@/hooks/use-toast";
 import VideoFeed from './ui/VideoFeed';
+import { Textarea } from './ui/textarea';
+import { interviewService, generateSessionId } from '../services/interviewService';
 
 const InterviewInterface: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [transcription, setTranscription] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState('');
+  const [currentAnswer, setCurrentAnswer] = useState('');
+  const [sessionId, setSessionId] = useState('');
   const [progress, setProgress] = useState(0);
   const [timer, setTimer] = useState(0);
+  const conversationRef = useRef<HTMLDivElement>(null);
   
-  // Mock interview questions
-  const questions = [
-    "Tell me about yourself and your experience.",
-    "What do you consider to be your greatest professional achievement?",
-    "Describe a challenging situation you faced and how you handled it.",
-    "Where do you see yourself in five years?",
-    "Why do you want to work for our company?",
-  ];
+  // Initialize interview session
+  useEffect(() => {
+    const initInterview = async () => {
+      try {
+        const newSessionId = generateSessionId();
+        setSessionId(newSessionId);
+        
+        setIsLoading(true);
+        const response = await interviewService.startInterview({
+          session_id: newSessionId,
+          name: "Candidate", // These could come from a form
+          role: "Software Developer",
+          experience: "3"
+        });
+        
+        if (response.first_question) {
+          setCurrentQuestion(response.first_question);
+          setTranscription([`AI: ${response.first_question}`]);
+        }
+      } catch (error) {
+        console.error("Failed to initialize interview:", error);
+        toast({
+          title: "Connection Error",
+          description: "Failed to connect to the interview service",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    initInterview();
+  }, []);
   
-  // Mock interview progression
+  // Interview timer
   useEffect(() => {
     const interval = setInterval(() => {
       if (timer < 600) { // 10 minutes in seconds
@@ -33,19 +65,50 @@ const InterviewInterface: React.FC = () => {
     return () => clearInterval(interval);
   }, [timer]);
   
-  // Simulate question progression
+  // Scroll to bottom of conversation
   useEffect(() => {
-    const questionIndex = Math.min(Math.floor(progress / 20), questions.length - 1);
-    setCurrentQuestion(questions[questionIndex]);
-    
-    // Simulate conversation
-    if (progress > 0 && progress % 20 === 0) {
-      setTranscription(prev => [
-        ...prev, 
-        `AI: ${questions[questionIndex]}`
-      ]);
+    if (conversationRef.current) {
+      conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
     }
-  }, [progress, questions]);
+  }, [transcription]);
+  
+  // Submit answer to backend
+  const handleSubmitAnswer = async () => {
+    if (!currentAnswer.trim() || !sessionId) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Add user's answer to transcription
+      const userAnswer = `You: ${currentAnswer}`;
+      setTranscription(prev => [...prev, userAnswer]);
+      
+      // Submit to backend
+      const response = await interviewService.submitAnswer({
+        session_id: sessionId,
+        answer: currentAnswer
+      });
+      
+      // Update with new question
+      if (response.next_question) {
+        setCurrentQuestion(response.next_question);
+        setTranscription(prev => [...prev, `AI: ${response.next_question}`]);
+      }
+      
+      // Clear answer field
+      setCurrentAnswer('');
+      
+    } catch (error) {
+      console.error("Error submitting answer:", error);
+      toast({
+        title: "Submission Error",
+        description: "Failed to submit your answer",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -82,7 +145,9 @@ const InterviewInterface: React.FC = () => {
                 <span className="text-3xl">🤖</span>
               </div>
               <h3 className="text-lg font-medium">AI Interviewer</h3>
-              <p className="text-sm text-muted-foreground mt-1">Actively listening</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isLoading ? "Processing..." : "Actively listening"}
+              </p>
             </div>
           </div>
         </div>
@@ -91,12 +156,15 @@ const InterviewInterface: React.FC = () => {
         <div className="flex flex-col space-y-6">
           <div className="flex-1 glass-card overflow-hidden flex flex-col">
             <h3 className="text-lg font-medium mb-4">Current Question</h3>
-            <div className="bg-muted/50 rounded-lg p-4 mb-4 animate-pulse-subtle">
-              <p className="text-lg">{currentQuestion}</p>
+            <div className="bg-muted/50 rounded-lg p-4 mb-4">
+              <p className="text-lg">{currentQuestion || "Loading..."}</p>
             </div>
             
             <h3 className="text-lg font-medium mb-2">Conversation</h3>
-            <div className="flex-1 overflow-y-auto rounded-lg bg-muted/30 p-4 space-y-3">
+            <div 
+              ref={conversationRef}
+              className="flex-1 overflow-y-auto rounded-lg bg-muted/30 p-4 space-y-3"
+            >
               {transcription.map((text, index) => (
                 <div 
                   key={index} 
@@ -118,25 +186,50 @@ const InterviewInterface: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex items-center justify-between">
-            <button 
-              className={`p-4 rounded-full ${
-                isMuted 
-                  ? 'bg-destructive text-destructive-foreground' 
-                  : 'bg-muted hover:bg-muted/80'
-              } transition-all duration-300`}
-              onClick={() => setIsMuted(!isMuted)}
-            >
-              {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-            </button>
-            
-            <button className="btn-primary">
-              End Interview
-            </button>
-            
-            <button className="p-4 rounded-full bg-muted hover:bg-muted/80">
-              <AlertCircle size={20} />
-            </button>
+          {/* Input area */}
+          <div className="flex flex-col space-y-4">
+            <div className="flex gap-2">
+              <Textarea
+                value={currentAnswer}
+                onChange={(e) => setCurrentAnswer(e.target.value)}
+                placeholder="Type your answer here..."
+                className="flex-1 resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmitAnswer();
+                  }
+                }}
+              />
+              <button 
+                className="p-3 bg-primary text-primary-foreground rounded-md self-end hover:bg-primary/90 transition-colors"
+                onClick={handleSubmitAnswer}
+                disabled={isLoading || !currentAnswer.trim()}
+              >
+                <Send size={20} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <button 
+                className={`p-4 rounded-full ${
+                  isMuted 
+                    ? 'bg-destructive text-destructive-foreground' 
+                    : 'bg-muted hover:bg-muted/80'
+                } transition-all duration-300`}
+                onClick={() => setIsMuted(!isMuted)}
+              >
+                {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+              
+              <button className="btn-primary">
+                End Interview
+              </button>
+              
+              <button className="p-4 rounded-full bg-muted hover:bg-muted/80">
+                <AlertCircle size={20} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
