@@ -5,6 +5,8 @@ import { toast } from "@/hooks/use-toast";
 import VideoFeed from './ui/VideoFeed';
 import { Textarea } from './ui/textarea';
 import { interviewService } from '../services/interviewService';
+import { speechUtils } from '../utils/speechUtils';
+import { Switch } from './ui/switch';
 
 interface InterviewInterfaceProps {
   sessionId: string;
@@ -19,7 +21,26 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [progress, setProgress] = useState(0);
   const [timer, setTimer] = useState(0);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const conversationRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
+  // Initialize audio context
+  useEffect(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return () => {
+      // Clean up text-to-speech on unmount
+      speechUtils.cancel();
+    };
+  }, []);
+  
+  // Handle stream from VideoFeed
+  const handleStreamReady = (stream: MediaStream) => {
+    streamRef.current = stream;
+  };
   
   // Initialize interview session
   useEffect(() => {
@@ -45,6 +66,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         if (response.first_question) {
           setCurrentQuestion(response.first_question);
           setTranscription([`AI: ${response.first_question}`]);
+          
+          // Speak the first question if TTS is enabled
+          if (ttsEnabled) {
+            speakText(response.first_question);
+          }
         }
       } catch (error) {
         console.error("Failed to initialize interview:", error);
@@ -82,6 +108,22 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   }, [transcription]);
   
+  // Text-to-speech functionality
+  const speakText = async (text: string) => {
+    // Cancel any ongoing speech
+    speechUtils.cancel();
+    
+    // Get a voice
+    const voice = speechUtils.getVoiceByLang('en-US');
+    
+    // Speak the text
+    return speechUtils.speak(text, voice, {
+      rate: 1,
+      pitch: 1,
+      volume: 1
+    });
+  };
+  
   // Submit answer to backend
   const handleSubmitAnswer = async () => {
     if (!currentAnswer.trim() || !sessionId) return;
@@ -103,6 +145,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
       if (response.next_question) {
         setCurrentQuestion(response.next_question);
         setTranscription(prev => [...prev, `AI: ${response.next_question}`]);
+        
+        // Speak the next question if TTS is enabled
+        if (ttsEnabled) {
+          speakText(response.next_question);
+        }
       }
       
       // Clear answer field
@@ -121,6 +168,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   };
   
   const handleEndInterview = () => {
+    // Cancel any ongoing speech
+    speechUtils.cancel();
+    
     // In a real app, this would save the interview results
     toast({
       title: "Interview Completed",
@@ -131,6 +181,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     setTimeout(() => {
       window.location.href = '/';
     }, 2000);
+  };
+  
+  // Toggle microphone
+  const toggleMicrophone = () => {
+    setIsMuted(!isMuted);
   };
   
   // Format time as MM:SS
@@ -160,7 +215,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
         {/* Video feeds */}
         <div className="flex flex-col space-y-6">
-          <VideoFeed className="h-72 md:h-96" />
+          <VideoFeed 
+            className="h-72 md:h-96" 
+            muted={isMuted} 
+            onStreamReady={handleStreamReady}
+          />
           
           <div className="glass-card h-72 flex items-center justify-center">
             <div className="text-center">
@@ -171,6 +230,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               <p className="text-sm text-muted-foreground mt-1">
                 {isLoading ? "Processing..." : "Actively listening"}
               </p>
+              
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <span className="text-sm">TTS</span>
+                <Switch 
+                  checked={ttsEnabled} 
+                  onCheckedChange={setTtsEnabled} 
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -240,7 +307,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
                     ? 'bg-destructive text-destructive-foreground' 
                     : 'bg-muted hover:bg-muted/80'
                 } transition-all duration-300`}
-                onClick={() => setIsMuted(!isMuted)}
+                onClick={toggleMicrophone}
+                aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
               >
                 {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
