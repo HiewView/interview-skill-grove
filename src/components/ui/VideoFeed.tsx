@@ -29,7 +29,7 @@ const VideoFeed: React.FC<VideoFeedProps> = ({
           streamRef.current.getTracks().forEach(track => track.stop());
         }
         
-        // Get a new stream with video and potentially audio
+        // Get a new stream with video and audio
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: true, 
           audio: true
@@ -92,12 +92,28 @@ const VideoFeed: React.FC<VideoFeedProps> = ({
       
       {!hasPermission && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-          <p className="text-white mb-2">Camera access is required</p>
+          <p className="text-white mb-2">Camera and microphone access is required</p>
           <button 
             className="px-4 py-2 bg-primary rounded-lg text-white text-sm"
-            onClick={() => setHasPermission(true)}
+            onClick={() => {
+              setHasPermission(true);
+              navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                  streamRef.current = stream;
+                  if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                  }
+                  if (onStreamReady) {
+                    onStreamReady(stream);
+                  }
+                })
+                .catch(err => {
+                  console.error('Error accessing media devices:', err);
+                  setHasPermission(false);
+                });
+            }}
           >
-            Enable camera
+            Enable camera & mic
           </button>
         </div>
       )}

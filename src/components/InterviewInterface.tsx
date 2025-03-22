@@ -22,9 +22,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [progress, setProgress] = useState(0);
   const [timer, setTimer] = useState(0);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState('');
   const conversationRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<{ stop: () => void; abort: () => void } | null>(null);
   
   // Initialize audio context
   useEffect(() => {
@@ -34,12 +37,66 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     return () => {
       // Clean up text-to-speech on unmount
       speechUtils.cancel();
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
     };
   }, []);
   
   // Handle stream from VideoFeed
   const handleStreamReady = (stream: MediaStream) => {
     streamRef.current = stream;
+  };
+
+  // Start speech recognition
+  const startListening = () => {
+    if (!speechUtils.recognition.isSupported()) {
+      toast({
+        title: "Speech Recognition Not Supported",
+        description: "Your browser doesn't support speech recognition. Please type your answers instead.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+    }
+
+    // Only start if not muted
+    if (!isMuted) {
+      recognitionRef.current = speechUtils.recognition.start(
+        // On result
+        (transcript, isFinal) => {
+          if (isFinal) {
+            setCurrentAnswer(transcript);
+            setInterimTranscript('');
+          } else {
+            setInterimTranscript(transcript);
+          }
+        },
+        // On silence (user stopped speaking)
+        () => {
+          if (interimTranscript.trim() || currentAnswer.trim()) {
+            const finalAnswer = currentAnswer || interimTranscript;
+            setCurrentAnswer(finalAnswer);
+            handleSubmitAnswer(finalAnswer);
+            setInterimTranscript('');
+          }
+        },
+        3000 // 3 seconds of silence threshold
+      );
+      setIsListening(true);
+    }
+  };
+
+  // Stop speech recognition
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
   };
   
   // Initialize interview session
@@ -69,7 +126,16 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           
           // Speak the first question if TTS is enabled
           if (ttsEnabled) {
-            speakText(response.first_question);
+            const speech = await speakText(response.first_question);
+            // Start listening after AI finishes speaking
+            speech.finished.then(() => {
+              if (!isMuted) {
+                startListening();
+              }
+            });
+          } else if (!isMuted) {
+            // Start listening immediately if TTS is disabled
+            startListening();
           }
         }
       } catch (error) {
@@ -85,6 +151,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     };
     
     initInterview();
+
+    // Clean up when component unmounts
+    return () => {
+      stopListening();
+    };
   }, [sessionId, templateInfo]);
   
   // Interview timer
@@ -125,20 +196,22 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   };
   
   // Submit answer to backend
-  const handleSubmitAnswer = async () => {
-    if (!currentAnswer.trim() || !sessionId) return;
+  const handleSubmitAnswer = async (answerToSubmit?: string) => {
+    const finalAnswer = answerToSubmit || currentAnswer;
+    if (!finalAnswer.trim() || !sessionId) return;
     
     try {
       setIsLoading(true);
+      stopListening(); // Stop listening while processing
       
       // Add user's answer to transcription
-      const userAnswer = `You: ${currentAnswer}`;
+      const userAnswer = `You: ${finalAnswer}`;
       setTranscription(prev => [...prev, userAnswer]);
       
       // Submit to backend
       const response = await interviewService.submitAnswer({
         session_id: sessionId,
-        answer: currentAnswer
+        answer: finalAnswer
       });
       
       // Update with new question
@@ -148,7 +221,16 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         
         // Speak the next question if TTS is enabled
         if (ttsEnabled) {
-          speakText(response.next_question);
+          const speech = await speakText(response.next_question);
+          // Start listening after AI finishes speaking
+          speech.finished.then(() => {
+            if (!isMuted) {
+              startListening();
+            }
+          });
+        } else if (!isMuted) {
+          // Start listening immediately if TTS is disabled
+          startListening();
         }
       }
       
@@ -162,6 +244,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         description: "Failed to submit your answer",
         variant: "destructive"
       });
+      // Restart listening
+      if (!isMuted) {
+        startListening();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -170,6 +256,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const handleEndInterview = () => {
     // Cancel any ongoing speech
     speechUtils.cancel();
+    stopListening();
     
     // In a real app, this would save the interview results
     toast({
@@ -185,7 +272,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   
   // Toggle microphone
   const toggleMicrophone = () => {
-    setIsMuted(!isMuted);
+    if (isMuted) {
+      setIsMuted(false);
+      startListening();
+    } else {
+      setIsMuted(true);
+      stopListening();
+    }
   };
   
   // Format time as MM:SS
@@ -228,7 +321,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               </div>
               <h3 className="text-lg font-medium">AI Interviewer</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                {isLoading ? "Processing..." : "Actively listening"}
+                {isLoading ? "Processing..." : (isListening ? "Listening..." : "Ready")}
               </p>
               
               <div className="mt-4 flex items-center justify-center gap-2">
@@ -268,7 +361,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
                 </div>
               ))}
               
-              {transcription.length === 0 && (
+              {isListening && interimTranscript && (
+                <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12 animate-pulse">
+                  <p>You: {interimTranscript}</p>
+                </div>
+              )}
+              
+              {transcription.length === 0 && !isListening && (
                 <div className="text-center p-6 text-muted-foreground">
                   <p>Your conversation will appear here</p>
                 </div>
@@ -282,7 +381,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               <Textarea
                 value={currentAnswer}
                 onChange={(e) => setCurrentAnswer(e.target.value)}
-                placeholder="Type your answer here..."
+                placeholder={isListening ? "Listening to your voice..." : "Type your answer here..."}
                 className="flex-1 resize-none"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -293,8 +392,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               />
               <button 
                 className="p-3 bg-primary text-primary-foreground rounded-md self-end hover:bg-primary/90 transition-colors"
-                onClick={handleSubmitAnswer}
-                disabled={isLoading || !currentAnswer.trim()}
+                onClick={() => handleSubmitAnswer()}
+                disabled={isLoading || (!currentAnswer.trim() && !interimTranscript.trim())}
               >
                 <Send size={20} />
               </button>
@@ -305,7 +404,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
                 className={`p-4 rounded-full ${
                   isMuted 
                     ? 'bg-destructive text-destructive-foreground' 
-                    : 'bg-muted hover:bg-muted/80'
+                    : isListening 
+                      ? 'bg-green-500 text-white animate-pulse' 
+                      : 'bg-muted hover:bg-muted/80'
                 } transition-all duration-300`}
                 onClick={toggleMicrophone}
                 aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
