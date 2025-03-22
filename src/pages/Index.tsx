@@ -1,126 +1,144 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import Hero from '../components/Hero';
 import FeatureCard from '../components/FeatureCard';
-import { Brain, Clock, Check, Shield, BarChart, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
-
-const features = [
-  {
-    icon: Brain,
-    title: 'AI-Driven Interviews',
-    description: 'Advanced algorithms adapt questions based on your responses for a personalized experience.'
-  },
-  {
-    icon: Clock,
-    title: 'Real-Time Feedback',
-    description: 'Receive immediate insights on your performance during the interview process.'
-  },
-  {
-    icon: Check,
-    title: 'Objective Evaluation',
-    description: 'Unbiased assessment of your technical and soft skills without human judgment.'
-  },
-  {
-    icon: Shield,
-    title: 'Malpractice Detection',
-    description: 'Sophisticated monitoring to ensure interview integrity and fairness.'
-  },
-  {
-    icon: BarChart,
-    title: 'Comprehensive Reports',
-    description: 'Detailed performance analytics with actionable improvement suggestions.'
-  },
-  {
-    icon: Users,
-    title: 'Practice Community',
-    description: 'Connect with peers to share experiences and preparation strategies.'
-  }
-];
 
 const Index: React.FC = () => {
   return (
-    <div className="page-transition">
-      <Hero />
-      
-      {/* Features Section */}
-      <section className="section bg-muted/30">
-        <div className="page-container">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl font-medium mb-4">Designed for Excellence</h2>
-            <p className="text-foreground/70">
-              Our platform combines cutting-edge AI with thoughtful design to create
-              the most effective interview preparation experience.
-            </p>
+    <div className="page-transition min-h-screen">
+      <Hero
+        title="AI-Powered Interview Experience"
+        subtitle="Practice & evaluate your interview skills with real-time AI-driven assessment."
+        cta={
+          <div className="flex flex-col sm:flex-row gap-4 mt-8">
+            <Link
+              to="/interview"
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              Start as a Candidate
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              to="/organization"
+              className="btn-secondary inline-flex items-center gap-2"
+            >
+              Start as an Organization
+              <ArrowRight size={16} />
+            </Link>
           </div>
+        }
+      />
+
+      <div className="page-section bg-muted/30">
+        <div className="page-container">
+          <h2 className="section-title">Key Features</h2>
+          <p className="section-subtitle">
+            Our platform offers a comprehensive set of tools for interview preparation and assessment
+          </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <div 
-                key={feature.title}
-                className="animate-in slide-in-from-bottom duration-300"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <FeatureCard 
-                  icon={feature.icon} 
-                  title={feature.title} 
-                  description={feature.description} 
-                />
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+            <FeatureCard
+              title="AI-powered Interviews"
+              description="Experience realistic interviews with our advanced AI interviewer that adapts to your responses."
+              icon="brain"
+            />
+            
+            <FeatureCard
+              title="Real-time Feedback"
+              description="Get instant insights on your performance with detailed analytics and improvement suggestions."
+              icon="bar-chart"
+            />
+            
+            <FeatureCard
+              title="Performance Analysis"
+              description="Review comprehensive reports highlighting your strengths and areas for improvement."
+              icon="line-chart"
+            />
           </div>
         </div>
-      </section>
-      
-      {/* CTA Section */}
-      <section className="section relative overflow-hidden">
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -z-10 -translate-y-1/2"></div>
-        <div className="absolute top-1/2 left-0 w-72 h-72 bg-accent/10 rounded-full blur-3xl -z-10 -translate-y-1/2"></div>
-        
+      </div>
+
+      <div className="page-section">
         <div className="page-container">
-          <div className="glass-card max-w-4xl mx-auto p-10 md:p-16">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-medium mb-4">Ready to Transform Your Interview Skills?</h2>
-              <p className="text-foreground/70 max-w-2xl mx-auto">
-                Join thousands of candidates who have improved their interview performance and landed their dream jobs.
-              </p>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link to="/dashboard" className="btn-primary w-full sm:w-auto">
-                Start Practicing Now
-              </Link>
-              <Link to="/interview" className="btn-outline w-full sm:w-auto">
-                Experience Demo Interview
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-      
-      {/* Footer */}
-      <footer className="py-10 border-t">
-        <div className="page-container">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-white font-bold text-sm">AI</span>
+          <div className="glass-card p-8 md:p-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold mb-4">
+                  For Organizations & Universities
+                </h2>
+                <p className="text-lg mb-6">
+                  Streamline your hiring process with our AI-powered interview platform.
+                  Create custom interview templates, manage candidates, and get detailed reports.
+                </p>
+                <ul className="space-y-2 mb-8">
+                  <li className="flex items-start">
+                    <span className="mr-2 text-primary">✓</span>
+                    Customizable interview templates
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2 text-primary">✓</span>
+                    Bulk candidate management
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2 text-primary">✓</span>
+                    Detailed performance analytics
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2 text-primary">✓</span>
+                    Automated interview scheduling
+                  </li>
+                </ul>
+                <Link
+                  to="/organization"
+                  className="btn-primary inline-flex items-center gap-2"
+                >
+                  Get Started
+                  <ArrowRight size={16} />
+                </Link>
               </div>
-              <span className="font-semibold text-lg">InterviewPro</span>
+              
+              <div className="bg-primary/5 rounded-lg p-8 border border-primary/10">
+                <h3 className="text-xl font-medium mb-4">For Hiring Teams</h3>
+                <p className="mb-6">
+                  Create customized interview experiences tailored to your specific roles and requirements.
+                </p>
+                
+                <div className="space-y-4">
+                  <div className="bg-background p-4 rounded-md">
+                    <h4 className="font-medium">1. Create Role Templates</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Define specific questions and evaluation criteria
+                    </p>
+                  </div>
+                  
+                  <div className="bg-background p-4 rounded-md">
+                    <h4 className="font-medium">2. Add Candidates</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Upload candidate emails individually or in bulk
+                    </p>
+                  </div>
+                  
+                  <div className="bg-background p-4 rounded-md">
+                    <h4 className="font-medium">3. Schedule Interviews</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Candidates receive automated invitations
+                    </p>
+                  </div>
+                  
+                  <div className="bg-background p-4 rounded-md">
+                    <h4 className="font-medium">4. Review Results</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Get comprehensive reports on candidate performance
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-4 text-sm text-foreground/70">
-              <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-              <a href="#" className="hover:text-primary transition-colors">Terms</a>
-              <a href="#" className="hover:text-primary transition-colors">Contact</a>
-            </div>
-            
-            <p className="text-sm text-foreground/70">
-              © {new Date().getFullYear()} InterviewPro. All rights reserved.
-            </p>
           </div>
         </div>
-      </footer>
+      </div>
     </div>
   );
 };

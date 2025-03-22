@@ -4,15 +4,19 @@ import { Mic, MicOff, AlertCircle, Send } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 import VideoFeed from './ui/VideoFeed';
 import { Textarea } from './ui/textarea';
-import { interviewService, generateSessionId } from '../services/interviewService';
+import { interviewService } from '../services/interviewService';
 
-const InterviewInterface: React.FC = () => {
+interface InterviewInterfaceProps {
+  sessionId: string;
+  templateInfo?: any;
+}
+
+const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, templateInfo }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [transcription, setTranscription] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [currentAnswer, setCurrentAnswer] = useState('');
-  const [sessionId, setSessionId] = useState('');
   const [progress, setProgress] = useState(0);
   const [timer, setTimer] = useState(0);
   const conversationRef = useRef<HTMLDivElement>(null);
@@ -21,15 +25,21 @@ const InterviewInterface: React.FC = () => {
   useEffect(() => {
     const initInterview = async () => {
       try {
-        const newSessionId = generateSessionId();
-        setSessionId(newSessionId);
+        if (!sessionId) return;
         
         setIsLoading(true);
+        
+        // Get candidate name from local storage if available
+        const formData = JSON.parse(localStorage.getItem('interview_form_data') || '{}');
+        
         const response = await interviewService.startInterview({
-          session_id: newSessionId,
-          name: "Candidate", // These could come from a form
-          role: "Software Developer",
-          experience: "3"
+          session_id: sessionId,
+          name: formData.name || "Candidate",
+          role: formData.role || (templateInfo?.role || "Software Developer"),
+          experience: formData.experience || "3",
+          resume_text: formData.resumeText || "",
+          organization_id: templateInfo?.organization_id,
+          template_id: templateInfo?.id
         });
         
         if (response.first_question) {
@@ -49,7 +59,7 @@ const InterviewInterface: React.FC = () => {
     };
     
     initInterview();
-  }, []);
+  }, [sessionId, templateInfo]);
   
   // Interview timer
   useEffect(() => {
@@ -108,6 +118,19 @@ const InterviewInterface: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  const handleEndInterview = () => {
+    // In a real app, this would save the interview results
+    toast({
+      title: "Interview Completed",
+      description: "Your interview has been completed and recorded",
+    });
+    
+    // Redirect to a thank you or results page
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 2000);
   };
   
   // Format time as MM:SS
@@ -222,7 +245,10 @@ const InterviewInterface: React.FC = () => {
                 {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
               
-              <button className="btn-primary">
+              <button 
+                className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors"
+                onClick={handleEndInterview}
+              >
                 End Interview
               </button>
               
