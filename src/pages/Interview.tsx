@@ -5,6 +5,7 @@ import InterviewInterface from '../components/InterviewInterface';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Form, FormField, FormItem, FormLabel, FormControl } from '../components/ui/form';
+import { Switch } from '../components/ui/switch';
 import { useForm } from 'react-hook-form';
 import { interviewService, generateSessionId } from '../services/interviewService';
 import { toast } from "@/hooks/use-toast";
