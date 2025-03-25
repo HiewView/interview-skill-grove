@@ -69,24 +69,30 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         // On result
         (transcript, isFinal) => {
           if (isFinal) {
-            setCurrentAnswer(transcript);
-            setInterimTranscript('');
+            setCurrentAnswer(prev => {
+              const newAnswer = prev ? `${prev} ${transcript}` : transcript;
+              return newAnswer.trim();
+            });
           } else {
             setInterimTranscript(transcript);
           }
         },
         // On silence (user stopped speaking)
         () => {
-          if (interimTranscript.trim() || currentAnswer.trim()) {
+          if (currentAnswer.trim() || interimTranscript.trim()) {
             const finalAnswer = currentAnswer || interimTranscript;
-            setCurrentAnswer(finalAnswer);
-            handleSubmitAnswer(finalAnswer);
+            setCurrentAnswer(finalAnswer.trim());
+            handleSubmitAnswer(finalAnswer.trim());
             setInterimTranscript('');
           }
         },
         3000 // 3 seconds of silence threshold
       );
       setIsListening(true);
+      toast({
+        title: "Listening",
+        description: "Speak your answer. I'll submit it after 3 seconds of silence.",
+      });
     }
   };
 
@@ -214,6 +220,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         answer: finalAnswer
       });
       
+      // Clear answer field after submission
+      setCurrentAnswer('');
+      
       // Update with new question
       if (response.next_question) {
         setCurrentQuestion(response.next_question);
@@ -233,9 +242,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           startListening();
         }
       }
-      
-      // Clear answer field
-      setCurrentAnswer('');
       
     } catch (error) {
       console.error("Error submitting answer:", error);

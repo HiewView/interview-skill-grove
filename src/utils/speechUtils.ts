@@ -1,10 +1,16 @@
-
 // Speech synthesis and recognition utilities
 
 // Initialize speech synthesis
 const synth = window.speechSynthesis;
 
-// Speech recognition
+// Speech recognition with proper TypeScript declarations
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
@@ -85,7 +91,7 @@ export const speechUtils = {
       recognition.onerror = null;
       
       // Set up event listeners
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: any) => {
         lastSpeechTimestamp = Date.now(); // Update timestamp when speech is detected
         
         // Get the transcript
@@ -100,19 +106,21 @@ export const speechUtils = {
           }
         }
         
-        // Update the full transcript
-        transcript = finalTranscript || interimTranscript;
+        // Update the full transcript - maintain previous transcript for continuous recording
+        if (finalTranscript) {
+          transcript += ' ' + finalTranscript;
+        }
         
         // Call the result handler
-        onResult(transcript, !!finalTranscript);
+        onResult(finalTranscript ? transcript.trim() : interimTranscript, !!finalTranscript);
       };
       
       recognition.onend = () => {
-        // Restart recognition if it ends
+        // Restart recognition if it ends unexpectedly
         recognition.start();
       };
       
-      recognition.onerror = (event) => {
+      recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
       };
       
@@ -126,7 +134,7 @@ export const speechUtils = {
           if (now - lastSpeechTimestamp > silenceThreshold && transcript.trim()) {
             // Silence detected with non-empty transcript
             onSilence();
-            transcript = ''; // Reset transcript
+            transcript = ''; // Reset transcript after sending
           }
           
           silenceTimer = window.setTimeout(checkSilence, 500);
