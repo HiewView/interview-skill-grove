@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import InterviewInterface from '../components/InterviewInterface';
+import InterviewInterface from '../components/interview/InterviewInterface';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Form, FormField, FormItem, FormLabel, FormControl } from '../components/ui/form';
