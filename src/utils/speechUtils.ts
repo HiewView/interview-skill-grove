@@ -1,4 +1,3 @@
-
 // Speech synthesis and recognition utilities
 
 // Initialize speech synthesis
@@ -107,6 +106,7 @@ export const speechUtils = {
       let lastSpeechTimestamp = Date.now();
       let silenceTimer: number | null = null;
       let transcript = '';
+      let isSpeaking = false;
       
       // Clear previous event listeners
       recognition.onresult = null;
@@ -115,6 +115,7 @@ export const speechUtils = {
       
       // Set up event listeners
       recognition.onresult = (event: any) => {
+        isSpeaking = true;
         lastSpeechTimestamp = Date.now(); // Update timestamp when speech is detected
         
         // Get the transcript
@@ -150,20 +151,21 @@ export const speechUtils = {
       // Start the speech recognition
       recognition.start();
       
-      // Set up silence detection
+      // Set up enhanced silence detection
       if (onSilence) {
         const checkSilence = () => {
           const now = Date.now();
-          if (now - lastSpeechTimestamp > silenceThreshold && transcript.trim()) {
-            // Silence detected with non-empty transcript
+          if (now - lastSpeechTimestamp > silenceThreshold && isSpeaking && transcript.trim()) {
+            // Silence detected with non-empty transcript and after speech
             onSilence();
             transcript = ''; // Reset transcript after sending
+            isSpeaking = false; // Reset speaking flag
           }
           
-          silenceTimer = window.setTimeout(checkSilence, 500);
+          silenceTimer = window.setTimeout(checkSilence, 300); // Check more frequently
         };
         
-        silenceTimer = window.setTimeout(checkSilence, 500);
+        silenceTimer = window.setTimeout(checkSilence, 300);
       }
       
       // Return control functions
@@ -194,6 +196,7 @@ export const speechUtils = {
       let silenceTimer: number | null = null;
       let lastSpeechTimestamp = Date.now();
       let isRecording = false;
+      let hasSpeech = false; // Flag to track if speech has been detected
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
       // Setup audio analyzer for silence detection
@@ -216,17 +219,20 @@ export const speechUtils = {
           }
           const average = sum / bufferLength;
           
-          // If audio level is above threshold, update timestamp
+          // If audio level is above threshold, update timestamp and set hasSpeech flag
           if (average > 10) { // Adjust threshold as needed
             lastSpeechTimestamp = Date.now();
+            hasSpeech = true; // Mark that we've detected speech
           } else {
-            // Check for silence
+            // Check for silence but only after speech has been detected
             const now = Date.now();
-            if (now - lastSpeechTimestamp > silenceThreshold && isRecording) {
-              // Silence detected, stop recording and process audio
+            if (now - lastSpeechTimestamp > silenceThreshold && hasSpeech && isRecording) {
+              // Silence detected after speech, stop recording and process audio
               if (mediaRecorder && mediaRecorder.state === 'recording') {
+                console.log("Silence detected - stopping recording");
                 mediaRecorder.stop();
                 isRecording = false;
+                hasSpeech = false; // Reset speech flag
               }
             }
           }

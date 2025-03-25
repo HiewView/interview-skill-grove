@@ -4,9 +4,14 @@ import React from 'react';
 interface ProgressHeaderProps {
   timer: number;
   progress: number;
+  silenceDetection?: boolean;
 }
 
-const ProgressHeader: React.FC<ProgressHeaderProps> = ({ timer, progress }) => {
+const ProgressHeader: React.FC<ProgressHeaderProps> = ({ 
+  timer, 
+  progress, 
+  silenceDetection = true 
+}) => {
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -18,7 +23,14 @@ const ProgressHeader: React.FC<ProgressHeaderProps> = ({ timer, progress }) => {
     <div className="px-6 py-4 border-b">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium">Interview Progress</span>
-        <span className="text-sm font-medium">{formatTime(timer)}</span>
+        <div className="flex items-center gap-3">
+          {silenceDetection && (
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+              Pause Detector Active
+            </span>
+          )}
+          <span className="text-sm font-medium">{formatTime(timer)}</span>
+        </div>
       </div>
       <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
         <div 

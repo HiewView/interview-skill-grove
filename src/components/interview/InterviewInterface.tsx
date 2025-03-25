@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from "@/hooks/use-toast";
 import VideoFeed from '../ui/VideoFeed';
@@ -82,6 +81,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         },
         // On silence (user stopped speaking)
         () => {
+          console.log("Silence detected, submitting answer");
           if (currentAnswer.trim() || interimTranscript.trim()) {
             const finalAnswer = currentAnswer || interimTranscript;
             setCurrentAnswer(finalAnswer.trim());
@@ -89,7 +89,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             setInterimTranscript('');
           }
         },
-        3000, // 3 seconds of silence threshold
+        2000, // Reduced silence threshold to 2 seconds (from 3)
         useWhisper // Use Whisper if enabled
       );
       setIsListening(true);
