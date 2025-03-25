@@ -5,7 +5,6 @@ import InterviewInterface from '../components/interview/InterviewInterface';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Form, FormField, FormItem, FormLabel, FormControl } from '../components/ui/form';
-import { Switch } from '../components/ui/switch';
 import { useForm } from 'react-hook-form';
 import { interviewService, generateSessionId } from '../services/interviewService';
 import { toast } from "@/hooks/use-toast";
@@ -42,8 +41,8 @@ const Interview: React.FC = () => {
       name: parsedFormData?.name || '',
       role: templateInfo?.role || parsedFormData?.role || '',
       experience: parsedFormData?.experience || '',
-      resumeText: parsedFormData?.resumeText || '',
-      useWhisper: true // Default to using Whisper
+      resumeText: parsedFormData?.resumeText || ''
+      // Removed useWhisper as we're always using it now
     }
   });
 
@@ -67,7 +66,7 @@ const Interview: React.FC = () => {
         experience: data.experience,
         resume_text: data.resumeText,
         template_id: templateInfo?.id,
-        use_whisper: data.useWhisper
+        use_whisper: true // Always use Whisper
       });
       
       setIsStarted(true);
@@ -134,7 +133,7 @@ const Interview: React.FC = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                   <FormField
                     control={form.control}
                     name="experience"
@@ -143,29 +142,6 @@ const Interview: React.FC = () => {
                         <FormLabel>Years of Experience</FormLabel>
                         <FormControl>
                           <Input type="number" placeholder="3" {...field} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="useWhisper"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">
-                            Use Whisper for Speech Recognition
-                          </FormLabel>
-                          <p className="text-sm text-muted-foreground">
-                            Enable for more accurate speech recognition
-                          </p>
-                        </div>
-                        <FormControl>
-                          <Switch 
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
                         </FormControl>
                       </FormItem>
                     )}

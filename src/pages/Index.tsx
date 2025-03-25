@@ -60,7 +60,8 @@ const Index: React.FC = () => {
         </div>
       </div>
 
-      <div className="page-section">
+      {/* Added mt-16 for more spacing between sections */}
+      <div className="page-section mt-16">
         <div className="page-container">
           <div className="glass-card p-8 md:p-12">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">

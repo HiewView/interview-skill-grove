@@ -32,18 +32,10 @@ const AIInterviewer: React.FC<AIInterviewerProps> = ({
         
         <div className="mt-4 flex flex-col items-center justify-center gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm">TTS</span>
+            <span className="text-sm">Text-to-Speech</span>
             <Switch 
               checked={ttsEnabled} 
               onCheckedChange={setTtsEnabled} 
-            />
-          </div>
-          
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-sm">Whisper STT</span>
-            <Switch 
-              checked={useWhisper} 
-              onCheckedChange={toggleWhisper} 
             />
           </div>
         </div>

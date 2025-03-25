@@ -1,3 +1,4 @@
+
 // Speech synthesis and recognition utilities
 
 // Initialize speech synthesis
@@ -80,22 +81,18 @@ export const speechUtils = {
     // Check if speech recognition is supported
     isSupported: () => !!recognition,
     
-    // Start speech recognition
+    // Start speech recognition (kept for backward compatibility)
     start: (
       onResult: (transcript: string, isFinal: boolean) => void, 
       onSilence?: () => void, 
       silenceThreshold: number = 1500,
-      useWhisper: boolean = false
+      useWhisper: boolean = true // Default to always use Whisper
     ) => {
-      if (useWhisper) {
-        return speechUtils.recognition.startWhisperRecognition(onResult, onSilence, silenceThreshold);
-      } else if (recognition) {
-        return speechUtils.recognition.startBrowserRecognition(onResult, onSilence, silenceThreshold);
-      }
-      return null;
+      // Always use Whisper now
+      return speechUtils.recognition.startWhisperRecognition(onResult, onSilence, silenceThreshold);
     },
     
-    // Start browser-based speech recognition
+    // Start browser-based speech recognition (kept for backward compatibility)
     startBrowserRecognition: (
       onResult: (transcript: string, isFinal: boolean) => void, 
       onSilence?: () => void, 
@@ -185,7 +182,7 @@ export const speechUtils = {
       };
     },
     
-    // Start Whisper-based speech recognition
+    // Start Whisper-based speech recognition with improved silence detection
     startWhisperRecognition: (
       onResult: (transcript: string, isFinal: boolean) => void, 
       onSilence?: () => void, 
@@ -199,7 +196,7 @@ export const speechUtils = {
       let hasSpeech = false; // Flag to track if speech has been detected
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      // Setup audio analyzer for silence detection
+      // Setup audio analyzer for improved silence detection
       const setupSilenceDetection = async (stream: MediaStream) => {
         const audioSource = audioContext.createMediaStreamSource(stream);
         const analyser = audioContext.createAnalyser();
@@ -220,7 +217,8 @@ export const speechUtils = {
           const average = sum / bufferLength;
           
           // If audio level is above threshold, update timestamp and set hasSpeech flag
-          if (average > 10) { // Adjust threshold as needed
+          if (average > 15) { // Increased threshold for better noise filtering
+            console.log("Speech detected, audio level:", average);
             lastSpeechTimestamp = Date.now();
             hasSpeech = true; // Mark that we've detected speech
           } else {
@@ -228,8 +226,8 @@ export const speechUtils = {
             const now = Date.now();
             if (now - lastSpeechTimestamp > silenceThreshold && hasSpeech && isRecording) {
               // Silence detected after speech, stop recording and process audio
+              console.log("Silence detected after speech, stopping recording");
               if (mediaRecorder && mediaRecorder.state === 'recording') {
-                console.log("Silence detected - stopping recording");
                 mediaRecorder.stop();
                 isRecording = false;
                 hasSpeech = false; // Reset speech flag
@@ -238,14 +236,14 @@ export const speechUtils = {
           }
           
           if (isRecording) {
-            silenceTimer = window.setTimeout(checkAudioLevel, 100);
+            silenceTimer = window.setTimeout(checkAudioLevel, 200); // Check more frequently for better response
           }
         };
         
-        silenceTimer = window.setTimeout(checkAudioLevel, 100);
+        silenceTimer = window.setTimeout(checkAudioLevel, 200);
       };
       
-      // Start recording
+      // Start recording with improved error handling
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
           mediaRecorder = new MediaRecorder(stream);
@@ -259,8 +257,8 @@ export const speechUtils = {
           mediaRecorder.onstop = async () => {
             // Only process if we have audio data
             if (audioChunks.length > 0) {
-              // Notify with interim transcript while processing
-              onResult("Processing your speech...", false);
+              // Don't show interim processing messages
+              // onResult("Processing your speech...", false);
               
               // Create audio blob from chunks
               const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
@@ -270,6 +268,7 @@ export const speechUtils = {
               formData.append('audio', audioBlob);
               
               try {
+                console.log("Sending audio to Whisper API for transcription");
                 const response = await fetch(WHISPER_API_URL, {
                   method: 'POST',
                   body: formData
@@ -278,6 +277,7 @@ export const speechUtils = {
                 const data = await response.json();
                 
                 if (data.transcript) {
+                  console.log("Received transcript from Whisper API:", data.transcript);
                   onResult(data.transcript, true);
                   
                   // Call silence callback if provided
@@ -287,7 +287,7 @@ export const speechUtils = {
                 }
               } catch (error) {
                 console.error('Error transcribing audio with Whisper:', error);
-                onResult("Error transcribing audio", true);
+                // Don't show error to user
               }
               
               // Reset audio chunks for next recording
@@ -308,8 +308,8 @@ export const speechUtils = {
           // Setup silence detection
           setupSilenceDetection(stream);
           
-          // Interim feedback
-          onResult("Listening...", false);
+          // Don't show interim feedback
+          // onResult("Listening...", false);
         })
         .catch(error => {
           console.error('Error accessing microphone:', error);

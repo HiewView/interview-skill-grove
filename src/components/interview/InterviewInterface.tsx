@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from "@/hooks/use-toast";
 import VideoFeed from '../ui/VideoFeed';
@@ -24,7 +25,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
-  const [useWhisper, setUseWhisper] = useState(true); // Default to using Whisper
+  const [silenceDetectionActive, setSilenceDetectionActive] = useState(true);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<{ stop: () => void; abort: () => void } | null>(null);
@@ -48,54 +49,38 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     streamRef.current = stream;
   };
 
-  // Start speech recognition
+  // Start speech recognition with Whisper
   const startListening = () => {
-    if (!useWhisper && !speechUtils.recognition.isSupported()) {
-      toast({
-        title: "Speech Recognition Not Supported",
-        description: "Your browser doesn't support speech recognition. Try using Whisper instead.",
-        variant: "destructive"
-      });
-      setUseWhisper(true);
-      return;
-    }
-
     if (recognitionRef.current) {
       recognitionRef.current.abort();
     }
 
     // Only start if not muted
     if (!isMuted) {
-      recognitionRef.current = speechUtils.recognition.start(
-        // On result
+      recognitionRef.current = speechUtils.recognition.startWhisperRecognition(
+        // Intentionally not showing interim results
         (transcript, isFinal) => {
-          if (isFinal) {
+          // Only show final transcripts from backend
+          if (isFinal && transcript !== "Processing your speech...") {
             setCurrentAnswer(prev => {
               const newAnswer = prev ? `${prev} ${transcript}` : transcript;
               return newAnswer.trim();
             });
-            setInterimTranscript('');
-          } else {
-            setInterimTranscript(transcript);
           }
         },
         // On silence (user stopped speaking)
         () => {
           console.log("Silence detected, submitting answer");
-          if (currentAnswer.trim() || interimTranscript.trim()) {
-            const finalAnswer = currentAnswer || interimTranscript;
-            setCurrentAnswer(finalAnswer.trim());
-            handleSubmitAnswer(finalAnswer.trim());
-            setInterimTranscript('');
+          if (currentAnswer.trim()) {
+            handleSubmitAnswer(currentAnswer.trim());
           }
         },
-        2000, // Reduced silence threshold to 2 seconds (from 3)
-        useWhisper // Use Whisper if enabled
+        1500 // Reduced silence threshold to 1.5 seconds
       );
       setIsListening(true);
       toast({
         title: "Listening",
-        description: `Speak your answer. Using ${useWhisper ? "Whisper" : "browser"} speech recognition.`,
+        description: "Speak your answer. Using backend speech recognition.",
       });
     }
   };
@@ -127,7 +112,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           experience: formData.experience || "3",
           resume_text: formData.resumeText || "",
           organization_id: templateInfo?.organization_id,
-          template_id: templateInfo?.id
+          template_id: templateInfo?.id,
+          use_whisper: true // Always use whisper
         });
         
         if (response.first_question) {
@@ -284,23 +270,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   };
   
-  // Toggle between Whisper and browser recognition
-  const toggleWhisper = () => {
-    stopListening();
-    setUseWhisper(!useWhisper);
-    
-    // Restart listening with new recognition type
-    setTimeout(() => {
-      if (!isMuted) {
-        startListening();
-      }
-    }, 300);
-  };
-  
   return (
     <div className="flex flex-col h-full">
       {/* Header with progress and timer */}
-      <ProgressHeader timer={timer} progress={progress} />
+      <ProgressHeader 
+        timer={timer} 
+        progress={progress} 
+        silenceDetection={silenceDetectionActive}
+      />
       
       {/* Main interview interface */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
@@ -317,8 +294,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             isListening={isListening}
             ttsEnabled={ttsEnabled}
             setTtsEnabled={setTtsEnabled}
-            useWhisper={useWhisper}
-            toggleWhisper={toggleWhisper}
+            useWhisper={true}
+            toggleWhisper={() => {}} // Empty function since we don't toggle anymore
           />
         </div>
         
