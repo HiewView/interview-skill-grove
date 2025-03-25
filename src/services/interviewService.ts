@@ -1,4 +1,3 @@
-
 /**
  * Service for communicating with the interview backend API
  */
@@ -11,6 +10,7 @@ interface StartInterviewParams {
   resume_text?: string;
   organization_id?: string;
   template_id?: string;
+  use_whisper?: boolean;
 }
 
 interface SubmitAnswerParams {
@@ -185,6 +185,26 @@ export const interviewService = {
     
     // In a real application, this would trigger emails to candidates
     console.log(`Scheduled interviews for ${candidateIds.length} candidates on ${date}`);
+  },
+
+  /**
+   * Transcribe audio using Whisper
+   */
+  async transcribeAudio(audioBlob: Blob): Promise<{ transcript: string }> {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob);
+      
+      const response = await fetch(`${API_URL}/transcribe`, {
+        method: "POST",
+        body: formData
+      });
+      
+      return await response.json();
+    } catch (error) {
+      console.error("Error transcribing audio:", error);
+      throw error;
+    }
   }
 };
 

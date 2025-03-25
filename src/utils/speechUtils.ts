@@ -1,3 +1,4 @@
+
 // Speech synthesis and recognition utilities
 
 // Initialize speech synthesis
@@ -20,6 +21,9 @@ if (recognition) {
   recognition.interimResults = true;
   recognition.lang = 'en-US';
 }
+
+// API URL for backend Whisper integration
+const WHISPER_API_URL = "http://127.0.0.1:5000/transcribe";
 
 export const speechUtils = {
   // Speak the given text
@@ -78,7 +82,26 @@ export const speechUtils = {
     isSupported: () => !!recognition,
     
     // Start speech recognition
-    start: (onResult: (transcript: string, isFinal: boolean) => void, onSilence?: () => void, silenceThreshold: number = 1500) => {
+    start: (
+      onResult: (transcript: string, isFinal: boolean) => void, 
+      onSilence?: () => void, 
+      silenceThreshold: number = 1500,
+      useWhisper: boolean = false
+    ) => {
+      if (useWhisper) {
+        return speechUtils.recognition.startWhisperRecognition(onResult, onSilence, silenceThreshold);
+      } else if (recognition) {
+        return speechUtils.recognition.startBrowserRecognition(onResult, onSilence, silenceThreshold);
+      }
+      return null;
+    },
+    
+    // Start browser-based speech recognition
+    startBrowserRecognition: (
+      onResult: (transcript: string, isFinal: boolean) => void, 
+      onSilence?: () => void, 
+      silenceThreshold: number = 1500
+    ) => {
       if (!recognition) return null;
       
       let lastSpeechTimestamp = Date.now();
@@ -156,6 +179,159 @@ export const speechUtils = {
             clearTimeout(silenceTimer);
           }
           recognition.abort();
+        }
+      };
+    },
+    
+    // Start Whisper-based speech recognition
+    startWhisperRecognition: (
+      onResult: (transcript: string, isFinal: boolean) => void, 
+      onSilence?: () => void, 
+      silenceThreshold: number = 1500
+    ) => {
+      let mediaRecorder: MediaRecorder | null = null;
+      let audioChunks: Blob[] = [];
+      let silenceTimer: number | null = null;
+      let lastSpeechTimestamp = Date.now();
+      let isRecording = false;
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Setup audio analyzer for silence detection
+      const setupSilenceDetection = async (stream: MediaStream) => {
+        const audioSource = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        audioSource.connect(analyser);
+        
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        const checkAudioLevel = () => {
+          analyser.getByteFrequencyData(dataArray);
+          
+          // Calculate average volume level
+          let sum = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            sum += dataArray[i];
+          }
+          const average = sum / bufferLength;
+          
+          // If audio level is above threshold, update timestamp
+          if (average > 10) { // Adjust threshold as needed
+            lastSpeechTimestamp = Date.now();
+          } else {
+            // Check for silence
+            const now = Date.now();
+            if (now - lastSpeechTimestamp > silenceThreshold && isRecording) {
+              // Silence detected, stop recording and process audio
+              if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                isRecording = false;
+              }
+            }
+          }
+          
+          if (isRecording) {
+            silenceTimer = window.setTimeout(checkAudioLevel, 100);
+          }
+        };
+        
+        silenceTimer = window.setTimeout(checkAudioLevel, 100);
+      };
+      
+      // Start recording
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          mediaRecorder = new MediaRecorder(stream);
+          
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              audioChunks.push(event.data);
+            }
+          };
+          
+          mediaRecorder.onstop = async () => {
+            // Only process if we have audio data
+            if (audioChunks.length > 0) {
+              // Notify with interim transcript while processing
+              onResult("Processing your speech...", false);
+              
+              // Create audio blob from chunks
+              const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+              
+              // Send to Whisper API
+              const formData = new FormData();
+              formData.append('audio', audioBlob);
+              
+              try {
+                const response = await fetch(WHISPER_API_URL, {
+                  method: 'POST',
+                  body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.transcript) {
+                  onResult(data.transcript, true);
+                  
+                  // Call silence callback if provided
+                  if (onSilence) {
+                    onSilence();
+                  }
+                }
+              } catch (error) {
+                console.error('Error transcribing audio with Whisper:', error);
+                onResult("Error transcribing audio", true);
+              }
+              
+              // Reset audio chunks for next recording
+              audioChunks = [];
+              
+              // Start recording again
+              if (mediaRecorder) {
+                mediaRecorder.start();
+                isRecording = true;
+              }
+            }
+          };
+          
+          // Start recording
+          mediaRecorder.start();
+          isRecording = true;
+          
+          // Setup silence detection
+          setupSilenceDetection(stream);
+          
+          // Interim feedback
+          onResult("Listening...", false);
+        })
+        .catch(error => {
+          console.error('Error accessing microphone:', error);
+          onResult("Error accessing microphone", true);
+        });
+      
+      // Return control functions
+      return {
+        stop: () => {
+          if (silenceTimer) {
+            clearTimeout(silenceTimer);
+          }
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            isRecording = false;
+          }
+          audioContext.close();
+        },
+        abort: () => {
+          if (silenceTimer) {
+            clearTimeout(silenceTimer);
+          }
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            isRecording = false;
+          }
+          audioChunks = [];
+          audioContext.close();
         }
       };
     },

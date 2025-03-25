@@ -41,7 +41,8 @@ const Interview: React.FC = () => {
       name: parsedFormData?.name || '',
       role: templateInfo?.role || parsedFormData?.role || '',
       experience: parsedFormData?.experience || '',
-      resumeText: parsedFormData?.resumeText || ''
+      resumeText: parsedFormData?.resumeText || '',
+      useWhisper: true // Default to using Whisper
     }
   });
 
@@ -65,6 +66,7 @@ const Interview: React.FC = () => {
         experience: data.experience,
         resume_text: data.resumeText,
         template_id: templateInfo?.id,
+        use_whisper: data.useWhisper
       });
       
       setIsStarted(true);
@@ -140,6 +142,29 @@ const Interview: React.FC = () => {
                         <FormLabel>Years of Experience</FormLabel>
                         <FormControl>
                           <Input type="number" placeholder="3" {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="useWhisper"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">
+                            Use Whisper for Speech Recognition
+                          </FormLabel>
+                          <p className="text-sm text-muted-foreground">
+                            Enable for more accurate speech recognition
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch 
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
                         </FormControl>
                       </FormItem>
                     )}

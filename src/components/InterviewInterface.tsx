@@ -24,6 +24,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
+  const [useWhisper, setUseWhisper] = useState(true); // Default to using Whisper
   const conversationRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -50,12 +51,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
 
   // Start speech recognition
   const startListening = () => {
-    if (!speechUtils.recognition.isSupported()) {
+    if (!useWhisper && !speechUtils.recognition.isSupported()) {
       toast({
         title: "Speech Recognition Not Supported",
-        description: "Your browser doesn't support speech recognition. Please type your answers instead.",
+        description: "Your browser doesn't support speech recognition. Try using Whisper instead.",
         variant: "destructive"
       });
+      setUseWhisper(true);
       return;
     }
 
@@ -73,6 +75,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               const newAnswer = prev ? `${prev} ${transcript}` : transcript;
               return newAnswer.trim();
             });
+            setInterimTranscript('');
           } else {
             setInterimTranscript(transcript);
           }
@@ -86,12 +89,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             setInterimTranscript('');
           }
         },
-        3000 // 3 seconds of silence threshold
+        3000, // 3 seconds of silence threshold
+        useWhisper // Use Whisper if enabled
       );
       setIsListening(true);
       toast({
         title: "Listening",
-        description: "Speak your answer. I'll submit it after 3 seconds of silence.",
+        description: `Speak your answer. Using ${useWhisper ? "Whisper" : "browser"} speech recognition.`,
       });
     }
   };
@@ -287,6 +291,19 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   };
   
+  // Toggle between Whisper and browser recognition
+  const toggleWhisper = () => {
+    stopListening();
+    setUseWhisper(!useWhisper);
+    
+    // Restart listening with new recognition type
+    setTimeout(() => {
+      if (!isMuted) {
+        startListening();
+      }
+    }, 300);
+  };
+  
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -330,12 +347,22 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
                 {isLoading ? "Processing..." : (isListening ? "Listening..." : "Ready")}
               </p>
               
-              <div className="mt-4 flex items-center justify-center gap-2">
-                <span className="text-sm">TTS</span>
-                <Switch 
-                  checked={ttsEnabled} 
-                  onCheckedChange={setTtsEnabled} 
-                />
+              <div className="mt-4 flex flex-col items-center justify-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">TTS</span>
+                  <Switch 
+                    checked={ttsEnabled} 
+                    onCheckedChange={setTtsEnabled} 
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-sm">Whisper STT</span>
+                  <Switch 
+                    checked={useWhisper} 
+                    onCheckedChange={toggleWhisper} 
+                  />
+                </div>
               </div>
             </div>
           </div>
