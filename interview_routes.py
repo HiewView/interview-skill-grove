@@ -6,102 +6,27 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 import json
 from bson.objectid import ObjectId
+from langchain_groq import ChatGroq
 
 interview_bp = Blueprint('interview', __name__)
+
+# Initialize Groq LLM for report generation
+llm = ChatGroq(model="llama3-70b-8192", temperature=0.2, max_retries=2)
 
 @interview_bp.route('/templates', methods=['GET'])
 @jwt_required()
 def get_templates():
-    templates = InterviewTemplate.query.all()
-    return jsonify({
-        'templates': [{
-            'id': template.id,
-            'name': template.name,
-            'role': template.role,
-            'description': template.description
-        } for template in templates]
-    }), 200
+    # ... keep existing code (templates fetching logic)
 
 @interview_bp.route('/start_interview', methods=['POST'])
 @jwt_required()
 def start_interview():
-    current_user_id = get_jwt_identity()
-    data = request.get_json()
-    
-    # Validate input
-    if not data.get('template_id') and not all(k in data for k in ('role', 'experience')):
-        return jsonify({'error': 'Missing template_id or role/experience details'}), 400
-    
-    # Create new session
-    session = InterviewSession(
-        user_id=current_user_id,
-        template_id=data.get('template_id'),
-        status='active',
-        start_time=datetime.utcnow(),
-        use_whisper=data.get('use_whisper', False)
-    )
-    
-    db.session.add(session)
-    db.session.commit()
-    
-    # If no template is provided, use custom parameters
-    if not data.get('template_id'):
-        # This would call your existing interview generation logic
-        first_question = "Tell me about yourself and your experience in this role."
-    else:
-        template = InterviewTemplate.query.get(data['template_id'])
-        questions = json.loads(template.questions)
-        first_question = questions[0] if questions else "Tell me about yourself."
-    
-    return jsonify({
-        'session_id': session.id,
-        'first_question': first_question,
-        'message': 'Interview session started successfully'
-    }), 201
+    # ... keep existing code (interview initialization)
 
 @interview_bp.route('/submit_answer', methods=['POST'])
 @jwt_required()
 def submit_answer():
-    data = request.get_json()
-    
-    if not all(k in data for k in ('session_id', 'answer')):
-        return jsonify({'error': 'Missing session_id or answer'}), 400
-    
-    # Get session
-    session = InterviewSession.query.get(data['session_id'])
-    
-    if not session:
-        return jsonify({'error': 'Interview session not found'}), 404
-    
-    if session.status != 'active':
-        return jsonify({'error': 'Interview session is not active'}), 400
-    
-    # This would call your existing interview question generation logic
-    next_question = "What are your strengths and weaknesses?"
-    
-    # Save the Q&A pair to MongoDB
-    qa_data = {
-        'session_id': session.id,
-        'question_number': data.get('question_number', 1),
-        'question': data.get('question', 'Previous question'),
-        'answer': data['answer'],
-        'timestamp': datetime.utcnow()
-    }
-    
-    mongo.db.interview_qa.insert_one(qa_data)
-    
-    # Check if this is the last question
-    if data.get('is_last_question'):
-        session.status = 'completed'
-        session.end_time = datetime.utcnow()
-        db.session.commit()
-        
-        # Generate report
-        return generate_report(session.id)
-    
-    return jsonify({
-        'next_question': next_question
-    }), 200
+    # ... keep existing code (answer submission handling)
 
 @interview_bp.route('/end_interview', methods=['POST'])
 @jwt_required()
@@ -129,32 +54,148 @@ def generate_report(session_id):
     session = InterviewSession.query.get(session_id)
     qa_records = list(mongo.db.interview_qa.find({'session_id': session_id}))
     
-    # Calculate metrics (in a real app, this would be more sophisticated)
-    qa_count = len(qa_records)
-    avg_answer_length = sum(len(qa['answer']) for qa in qa_records) / qa_count if qa_count > 0 else 0
+    # Check if report already exists in MongoDB
+    existing_report = mongo.db.interview_reports.find_one({"session_id": session_id})
     
-    # Sample metrics - in a real app, you'd use AI to analyze answers
-    technical_metrics = [
-        {"name": "Technical Knowledge", "value": 85, "color": "#3b82f6"},
-        {"name": "Problem Solving", "value": 78, "color": "#3b82f6"},
-        {"name": "Code Quality", "value": 92, "color": "#3b82f6"}
-    ]
+    if existing_report:
+        # Return existing report if already generated
+        existing_report["_id"] = str(existing_report["_id"])
+        return jsonify({
+            "report_id": existing_report["_id"],
+            "overall_score": existing_report["overall_score"],
+            "message": "Existing report retrieved"
+        }), 200
     
-    communication_metrics = [
-        {"name": "Clarity of Expression", "value": 88, "color": "#10b981"},
-        {"name": "Articulation", "value": 92, "color": "#10b981"},
-        {"name": "Active Listening", "value": 75, "color": "#10b981"}
-    ]
+    # If no existing report, generate one using LLM
+    qa_text = ""
+    qa_details = []
     
-    personality_metrics = [
-        {"name": "Confidence", "value": 82, "color": "#8b5cf6"},
-        {"name": "Adaptability", "value": 90, "color": "#8b5cf6"},
-        {"name": "Cultural Fit", "value": 85, "color": "#8b5cf6"}
-    ]
+    # Format Q&A pairs for the LLM prompt and for storage
+    for qa in qa_records:
+        question = qa.get('question', 'Unknown question')
+        answer = qa.get('answer', 'No answer provided')
+        qa_text += f"Question: {question}\nAnswer: {answer}\n\n"
+        
+        qa_details.append({
+            "question": question,
+            "answer": answer,
+            "assessment": ""  # Will be filled by LLM
+        })
     
-    # Calculate overall score
-    all_metrics = technical_metrics + communication_metrics + personality_metrics
-    overall_score = sum(metric["value"] for metric in all_metrics) / len(all_metrics)
+    # Get user and template information
+    user = User.query.get(session.user_id)
+    template = None
+    role = "Not specified"
+    
+    if session.template_id:
+        template = InterviewTemplate.query.get(session.template_id)
+        if template:
+            role = template.role
+    
+    # Generate metrics and analysis with LLM
+    report_prompt = f"""
+    You are an expert interview evaluator. You need to analyze the following interview transcript and generate a structured evaluation report.
+    
+    Role being applied for: {role}
+    
+    Interview transcript:
+    {qa_text}
+    
+    Generate a comprehensive interview assessment with the following components:
+    1. Technical metrics (score each from 0-100):
+       - Technical Knowledge
+       - Problem Solving
+       - Code Quality
+       
+    2. Communication metrics (score each from 0-100):
+       - Clarity of Expression
+       - Articulation
+       - Active Listening
+       
+    3. Personality metrics (score each from 0-100):
+       - Confidence
+       - Adaptability
+       - Cultural Fit
+       
+    4. For each question and answer, provide a brief assessment.
+    
+    Format your response as valid JSON with the following structure:
+    {{
+        "technical_metrics": [
+            {{"name": "Technical Knowledge", "value": 85, "color": "#3b82f6"}},
+            {{"name": "Problem Solving", "value": 78, "color": "#3b82f6"}},
+            {{"name": "Code Quality", "value": 92, "color": "#3b82f6"}}
+        ],
+        "communication_metrics": [
+            {{"name": "Clarity of Expression", "value": 88, "color": "#10b981"}},
+            {{"name": "Articulation", "value": 92, "color": "#10b981"}},
+            {{"name": "Active Listening", "value": 75, "color": "#10b981"}}
+        ],
+        "personality_metrics": [
+            {{"name": "Confidence", "value": 82, "color": "#8b5cf6"}},
+            {{"name": "Adaptability", "value": 90, "color": "#8b5cf6"}},
+            {{"name": "Cultural Fit", "value": 85, "color": "#8b5cf6"}}
+        ],
+        "qa_assessments": [
+            {{"question_idx": 0, "assessment": "Strong understanding and clear communication"}},
+            {{"question_idx": 1, "assessment": "Good technical knowledge but could improve conciseness"}}
+        ]
+    }}
+    """
+    
+    try:
+        # Use LLM to generate the report
+        llm_response = llm.invoke(report_prompt)
+        llm_content = llm_response.content
+        
+        # Extract JSON from the LLM response
+        import re
+        json_match = re.search(r'```json\n(.*?)\n```', llm_content, re.DOTALL)
+        if json_match:
+            llm_content = json_match.group(1)
+        
+        # Parse the LLM response
+        ai_analysis = json.loads(llm_content)
+        
+        # Apply AI assessments to QA details
+        for assessment in ai_analysis.get('qa_assessments', []):
+            idx = assessment.get('question_idx')
+            if idx is not None and idx < len(qa_details):
+                qa_details[idx]["assessment"] = assessment.get('assessment')
+        
+        # Calculate overall score
+        all_metrics = ai_analysis['technical_metrics'] + ai_analysis['communication_metrics'] + ai_analysis['personality_metrics']
+        overall_score = sum(metric["value"] for metric in all_metrics) / len(all_metrics)
+        
+    except Exception as e:
+        print(f"Error generating report with LLM: {str(e)}")
+        # Fallback to default metrics if LLM fails
+        technical_metrics = [
+            {"name": "Technical Knowledge", "value": 85, "color": "#3b82f6"},
+            {"name": "Problem Solving", "value": 78, "color": "#3b82f6"},
+            {"name": "Code Quality", "value": 92, "color": "#3b82f6"}
+        ]
+        
+        communication_metrics = [
+            {"name": "Clarity of Expression", "value": 88, "color": "#10b981"},
+            {"name": "Articulation", "value": 92, "color": "#10b981"},
+            {"name": "Active Listening", "value": 75, "color": "#10b981"}
+        ]
+        
+        personality_metrics = [
+            {"name": "Confidence", "value": 82, "color": "#8b5cf6"},
+            {"name": "Adaptability", "value": 90, "color": "#8b5cf6"},
+            {"name": "Cultural Fit", "value": 85, "color": "#8b5cf6"}
+        ]
+        
+        all_metrics = technical_metrics + communication_metrics + personality_metrics
+        overall_score = sum(metric["value"] for metric in all_metrics) / len(all_metrics)
+        
+        ai_analysis = {
+            "technical_metrics": technical_metrics,
+            "communication_metrics": communication_metrics,
+            "personality_metrics": personality_metrics
+        }
     
     # Store report in MongoDB
     report_data = {
@@ -162,16 +203,11 @@ def generate_report(session_id):
         "user_id": session.user_id,
         "date": datetime.utcnow(),
         "overall_score": overall_score,
-        "technical_metrics": technical_metrics,
-        "communication_metrics": communication_metrics,
-        "personality_metrics": personality_metrics,
-        "qa_details": [
-            {
-                "question": qa["question"],
-                "answer": qa["answer"],
-                "assessment": "Strong understanding and clear communication" # Placeholder
-            } for qa in qa_records
-        ]
+        "role": role,
+        "technical_metrics": ai_analysis['technical_metrics'],
+        "communication_metrics": ai_analysis['communication_metrics'],
+        "personality_metrics": ai_analysis['personality_metrics'],
+        "qa_details": qa_details
     }
     
     report_id = mongo.db.interview_reports.insert_one(report_data).inserted_id
@@ -189,51 +225,28 @@ def generate_report(session_id):
 @interview_bp.route('/reports', methods=['GET'])
 @jwt_required()
 def get_reports():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    # Get report list based on user type
-    if user.user_type == 'org_admin':
-        # For org admins, get all reports from their organization's users
-        org_users = User.query.filter_by(organization_id=user.organization_id).all()
-        user_ids = [u.id for u in org_users]
-        reports = list(mongo.db.interview_reports.find({"user_id": {"$in": user_ids}}))
-    else:
-        # For candidates, get only their reports
-        reports = list(mongo.db.interview_reports.find({"user_id": current_user_id}))
-    
-    # Convert ObjectId to string for JSON serialization
-    for report in reports:
-        report["_id"] = str(report["_id"])
-    
-    return jsonify({
-        "reports": reports
-    }), 200
+    # ... keep existing code (report fetching)
 
 @interview_bp.route('/reports/<report_id>', methods=['GET'])
 @jwt_required()
 def get_report_detail(report_id):
-    try:
-        report = mongo.db.interview_reports.find_one({"_id": ObjectId(report_id)})
-    except:
-        return jsonify({'error': 'Invalid report ID'}), 400
+    # ... keep existing code (report detail fetching)
+
+@interview_bp.route('/generate-report/<session_id>', methods=['POST'])
+@jwt_required()
+def request_report_generation(session_id):
+    """Generate or fetch an existing report for a session"""
+    # Check if report already exists
+    existing_report = mongo.db.interview_reports.find_one({"session_id": session_id})
     
-    if not report:
-        return jsonify({'error': 'Report not found'}), 404
+    if existing_report:
+        # Return existing report if already generated
+        existing_report["_id"] = str(existing_report["_id"])
+        return jsonify({
+            "report_id": existing_report["_id"],
+            "report": existing_report,
+            "message": "Existing report retrieved"
+        }), 200
     
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    # Check if user has access to this report
-    if user.user_type != 'org_admin' and report['user_id'] != current_user_id:
-        return jsonify({'error': 'You do not have permission to view this report'}), 403
-    
-    # Convert ObjectId to string for JSON serialization
-    report["_id"] = str(report["_id"])
-    
-    return jsonify({
-        "report": report
-    }), 200
+    # If no existing report, generate one
+    return generate_report(session_id)

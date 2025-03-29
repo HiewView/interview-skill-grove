@@ -92,5 +92,40 @@ export const reportService = {
       console.error(`Error fetching report ${reportId}:`, error);
       throw error;
     }
+  },
+  
+  /**
+   * Generate a new report for a session or retrieve existing one
+   */
+  async generateReport(sessionId: string): Promise<{ report_id: string; report: Report }> {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      // Add auth token if available
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_URL}/interview/generate-report/${sessionId}`, {
+        method: "POST",
+        headers
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      return {
+        report_id: data.report_id,
+        report: data.report
+      };
+    } catch (error) {
+      console.error(`Error generating report for session ${sessionId}:`, error);
+      throw error;
+    }
   }
 };

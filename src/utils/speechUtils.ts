@@ -1,359 +1,292 @@
 
-// Speech synthesis and recognition utilities
+/**
+ * Utility for working with speech recognition and synthesis
+ */
+
+// Define the wrapper for the SpeechRecognition API
+interface SpeechRecognitionWrapper {
+  isSupported: () => boolean;
+  start: (
+    onResult: (transcript: string, isFinal: boolean) => void,
+    onSilence: () => void,
+    silenceThreshold?: number,
+    useWhisper?: boolean
+  ) => { stop: () => void; abort: () => void };
+}
 
 // Initialize speech synthesis
 const synth = window.speechSynthesis;
 
-// Speech recognition with proper TypeScript declarations
-declare global {
-  interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
+// Get available voices
+const getVoices = (): SpeechSynthesisVoice[] => {
+  return synth.getVoices();
+};
+
+// Get a voice by language
+const getVoiceByLang = (lang: string): SpeechSynthesisVoice | null => {
+  const voices = getVoices();
+  
+  // Find a voice that includes the language code (e.g. 'en-US')
+  const voice = voices.find(voice => voice.lang.includes(lang));
+  
+  // If no match, return the first voice or null
+  return voice || voices[0] || null;
+};
+
+// Stop all ongoing speech
+const cancel = (): void => {
+  if (synth.speaking) {
+    synth.cancel();
   }
-}
+};
 
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+// Speak text
+const speak = (text: string, voice: SpeechSynthesisVoice | null, options: { rate?: number; pitch?: number; volume?: number } = {}): { finished: Promise<void> } => {
+  // Create utterance
+  const utterance = new SpeechSynthesisUtterance(text);
+  
+  // Set voice
+  if (voice) {
+    utterance.voice = voice;
+  }
+  
+  // Set options
+  utterance.rate = options.rate || 1;
+  utterance.pitch = options.pitch || 1;
+  utterance.volume = options.volume || 1;
+  
+  // Return a promise that resolves when speech ends
+  const finished = new Promise<void>((resolve) => {
+    utterance.onend = () => resolve();
+    utterance.onerror = () => resolve();
+  });
+  
+  // Start speaking
+  synth.speak(utterance);
+  
+  return { finished };
+};
 
-// Configure speech recognition if available
-if (recognition) {
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-}
+// Speech recognition implementation
+const recognition: SpeechRecognitionWrapper = {
+  isSupported: () => {
+    return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+  },
+  
+  start: (onResult, onSilence, silenceThreshold = 2000, useWhisper = false) => {
+    if (useWhisper) {
+      // Use server-side Whisper for recognition
+      return startWhisperRecognition(onResult, onSilence, silenceThreshold);
+    } else {
+      // Use browser's built-in speech recognition
+      return startBrowserRecognition(onResult, onSilence, silenceThreshold);
+    }
+  }
+};
 
-// API URL for backend Whisper integration
-const WHISPER_API_URL = "http://127.0.0.1:5000/transcribe";
-
-export const speechUtils = {
-  // Speak the given text
-  speak: (text: string, voice?: SpeechSynthesisVoice | null, options?: { rate?: number; pitch?: number; volume?: number }) => {
-    // Cancel any ongoing speech
-    synth.cancel();
+// Browser's built-in speech recognition
+const startBrowserRecognition = (
+  onResult: (transcript: string, isFinal: boolean) => void,
+  onSilence: () => void,
+  silenceThreshold: number
+) => {
+  // Get SpeechRecognition constructor
+  const SpeechRecognition = (window.SpeechRecognition || (window as any).webkitSpeechRecognition);
+  
+  // Initialize recognition
+  const recognizer = new SpeechRecognition();
+  recognizer.continuous = true;
+  recognizer.interimResults = true;
+  recognizer.lang = 'en-US';
+  
+  // Variables to track silence
+  let silenceTimer: number | null = null;
+  let lastSpeechTime = Date.now();
+  
+  // Event handlers
+  recognizer.onresult = (event) => {
+    const last = event.results.length - 1;
+    const transcript = event.results[last][0].transcript;
+    const isFinal = event.results[last].isFinal;
     
-    // Create a new utterance
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Update last speech time
+    lastSpeechTime = Date.now();
     
-    // Set voice if provided
-    if (voice) {
-      utterance.voice = voice;
+    // Clear silence timer
+    if (silenceTimer !== null) {
+      window.clearTimeout(silenceTimer);
+      silenceTimer = null;
     }
     
-    // Set options if provided
-    if (options) {
-      if (options.rate !== undefined) utterance.rate = options.rate;
-      if (options.pitch !== undefined) utterance.pitch = options.pitch;
-      if (options.volume !== undefined) utterance.volume = options.volume;
+    // Call result handler
+    onResult(transcript, isFinal);
+    
+    // Start silence detection after speech
+    if (isFinal) {
+      silenceTimer = window.setTimeout(() => {
+        onSilence();
+      }, silenceThreshold);
     }
-    
-    // Speak the utterance
-    synth.speak(utterance);
-    
-    return {
-      // Return a cancel function
-      cancel: () => synth.cancel(),
-      
-      // Return a promise that resolves when speech is done
-      finished: new Promise<void>(resolve => {
-        utterance.onend = () => resolve();
-      })
-    };
-  },
+  };
   
-  // Cancel any ongoing speech
-  cancel: () => {
-    synth.cancel();
-  },
+  recognizer.onspeechend = () => {
+    // Start silence timer
+    if (silenceTimer === null) {
+      silenceTimer = window.setTimeout(() => {
+        onSilence();
+      }, silenceThreshold);
+    }
+  };
   
-  // Get all available voices
-  getVoices: (): SpeechSynthesisVoice[] => {
-    return synth.getVoices();
-  },
+  recognizer.onerror = (event) => {
+    console.error('Speech recognition error:', event.error);
+  };
   
-  // Get a specific voice by language
-  getVoiceByLang: (lang: string = 'en-US'): SpeechSynthesisVoice | null => {
-    const voices = synth.getVoices();
-    return voices.find(voice => voice.lang.includes(lang)) || null;
-  },
-
-  // Speech recognition utilities
-  recognition: {
-    // Check if speech recognition is supported
-    isSupported: () => !!recognition,
-    
-    // Start speech recognition (always use Whisper now)
-    start: (
-      onResult: (transcript: string, isFinal: boolean) => void, 
-      onSilence?: () => void, 
-      silenceThreshold: number = 1500
-    ) => {
-      // Always use Whisper now
-      return speechUtils.recognition.startWhisperRecognition(onResult, onSilence, silenceThreshold);
-    },
-    
-    // Start browser-based speech recognition (kept for backward compatibility)
-    startBrowserRecognition: (
-      onResult: (transcript: string, isFinal: boolean) => void, 
-      onSilence?: () => void, 
-      silenceThreshold: number = 1500
-    ) => {
-      if (!recognition) return null;
-      
-      let lastSpeechTimestamp = Date.now();
-      let silenceTimer: number | null = null;
-      let transcript = '';
-      let isSpeaking = false;
-      
-      // Clear previous event listeners
-      recognition.onresult = null;
-      recognition.onend = null;
-      recognition.onerror = null;
-      
-      // Set up event listeners
-      recognition.onresult = (event: any) => {
-        isSpeaking = true;
-        lastSpeechTimestamp = Date.now(); // Update timestamp when speech is detected
-        
-        // Get the transcript
-        let interimTranscript = '';
-        let finalTranscript = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-        
-        // Update the full transcript - maintain previous transcript for continuous recording
-        if (finalTranscript) {
-          transcript += ' ' + finalTranscript;
-        }
-        
-        // Call the result handler
-        onResult(finalTranscript ? transcript.trim() : interimTranscript, !!finalTranscript);
-      };
-      
-      recognition.onend = () => {
-        // Restart recognition if it ends unexpectedly
-        recognition.start();
-      };
-      
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-      };
-      
-      // Start the speech recognition
-      recognition.start();
-      
-      // Set up enhanced silence detection
-      if (onSilence) {
-        const checkSilence = () => {
-          const now = Date.now();
-          if (now - lastSpeechTimestamp > silenceThreshold && isSpeaking && transcript.trim()) {
-            // Silence detected with non-empty transcript and after speech
-            onSilence();
-            transcript = ''; // Reset transcript after sending
-            isSpeaking = false; // Reset speaking flag
-          }
-          
-          silenceTimer = window.setTimeout(checkSilence, 300); // Check more frequently
-        };
-        
-        silenceTimer = window.setTimeout(checkSilence, 300);
-      }
-      
-      // Return control functions
-      return {
-        stop: () => {
-          if (silenceTimer) {
-            clearTimeout(silenceTimer);
-          }
-          recognition.stop();
-        },
-        abort: () => {
-          if (silenceTimer) {
-            clearTimeout(silenceTimer);
-          }
-          recognition.abort();
-        }
-      };
-    },
-    
-    // Start Whisper-based speech recognition with improved silence detection
-    startWhisperRecognition: (
-      onResult: (transcript: string, isFinal: boolean) => void, 
-      onSilence?: () => void, 
-      silenceThreshold: number = 1500
-    ) => {
-      let mediaRecorder: MediaRecorder | null = null;
-      let audioChunks: Blob[] = [];
-      let silenceTimer: number | null = null;
-      let lastSpeechTimestamp = Date.now();
-      let isRecording = false;
-      let hasSpeech = false; // Flag to track if speech has been detected
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Setup audio analyzer for improved silence detection
-      const setupSilenceDetection = async (stream: MediaStream) => {
-        const audioSource = audioContext.createMediaStreamSource(stream);
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        audioSource.connect(analyser);
-        
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        
-        const checkAudioLevel = () => {
-          analyser.getByteFrequencyData(dataArray);
-          
-          // Calculate average volume level
-          let sum = 0;
-          for (let i = 0; i < bufferLength; i++) {
-            sum += dataArray[i];
-          }
-          const average = sum / bufferLength;
-          
-          // If audio level is above threshold, update timestamp and set hasSpeech flag
-          if (average > 15) { // Increased threshold for better noise filtering
-            console.log("Speech detected, audio level:", average);
-            lastSpeechTimestamp = Date.now();
-            hasSpeech = true; // Mark that we've detected speech
-          } else {
-            // Check for silence but only after speech has been detected
-            const now = Date.now();
-            if (now - lastSpeechTimestamp > silenceThreshold && hasSpeech && isRecording) {
-              // Silence detected after speech, stop recording and process audio
-              console.log("Silence detected after speech, stopping recording");
-              if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                isRecording = false;
-                hasSpeech = false; // Reset speech flag
-              }
-            }
-          }
-          
-          if (isRecording) {
-            silenceTimer = window.setTimeout(checkAudioLevel, 200); // Check more frequently for better response
-          }
-        };
-        
-        silenceTimer = window.setTimeout(checkAudioLevel, 200);
-      };
-      
-      // Start recording with improved error handling
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          mediaRecorder = new MediaRecorder(stream);
-          
-          mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-              audioChunks.push(event.data);
-            }
-          };
-          
-          mediaRecorder.onstop = async () => {
-            // Only process if we have audio data
-            if (audioChunks.length > 0) {
-              // Create audio blob from chunks
-              const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-              
-              // Send to Whisper API
-              const formData = new FormData();
-              formData.append('audio', audioBlob);
-              
-              try {
-                console.log("Sending audio to Whisper API for transcription");
-                const response = await fetch(WHISPER_API_URL, {
-                  method: 'POST',
-                  body: formData
-                });
-                
-                if (!response.ok) {
-                  const errorText = await response.text();
-                  console.error('Error from transcription server:', errorText);
-                  throw new Error(`Server error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                if (data.transcript) {
-                  console.log("Received transcript from Whisper API:", data.transcript);
-                  onResult(data.transcript, true);
-                  
-                  // Call silence callback if provided
-                  if (onSilence) {
-                    onSilence();
-                  }
-                }
-              } catch (error) {
-                console.error('Error transcribing audio with Whisper:', error);
-                // Show error to user in development
-                if (process.env.NODE_ENV === 'development') {
-                  onResult("Error transcribing. Check console.", true);
-                }
-              }
-              
-              // Reset audio chunks for next recording
-              audioChunks = [];
-              
-              // Start recording again
-              if (mediaRecorder) {
-                mediaRecorder.start();
-                isRecording = true;
-              }
-            }
-          };
-          
-          // Start recording
-          mediaRecorder.start();
-          isRecording = true;
-          
-          // Setup silence detection
-          setupSilenceDetection(stream);
-        })
-        .catch(error => {
-          console.error('Error accessing microphone:', error);
-          onResult("Error accessing microphone", true);
-        });
-      
-      // Return control functions
-      return {
-        stop: () => {
-          if (silenceTimer) {
-            clearTimeout(silenceTimer);
-          }
-          if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            isRecording = false;
-          }
-          audioContext.close();
-        },
-        abort: () => {
-          if (silenceTimer) {
-            clearTimeout(silenceTimer);
-          }
-          if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            isRecording = false;
-          }
-          audioChunks = [];
-          audioContext.close();
-        }
-      };
-    },
-    
+  // Start recognition
+  recognizer.start();
+  
+  // Return control methods
+  return {
     stop: () => {
-      if (recognition) {
-        recognition.stop();
+      if (silenceTimer !== null) {
+        window.clearTimeout(silenceTimer);
+      }
+      recognizer.stop();
+    },
+    abort: () => {
+      if (silenceTimer !== null) {
+        window.clearTimeout(silenceTimer);
+      }
+      recognizer.abort();
+    }
+  };
+};
+
+// Whisper-based recognition via server
+const startWhisperRecognition = (
+  onResult: (transcript: string, isFinal: boolean) => void,
+  onSilence: () => void,
+  silenceThreshold: number
+) => {
+  // Check if MediaRecorder is supported
+  if (!('MediaRecorder' in window)) {
+    console.error('MediaRecorder is not supported in this browser');
+    return {
+      stop: () => {},
+      abort: () => {}
+    };
+  }
+  
+  // Set up variables
+  let mediaRecorder: MediaRecorder | null = null;
+  let silenceTimer: number | null = null;
+  let audioChunks: Blob[] = [];
+  let isRecording = false;
+  let shouldStop = false;
+  
+  // Get audio stream
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    // Create media recorder
+    mediaRecorder = new MediaRecorder(stream);
+    
+    // Set up event handlers
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    };
+    
+    mediaRecorder.onstop = async () => {
+      if (audioChunks.length === 0 || shouldStop) return;
+      
+      try {
+        // Create audio blob
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        
+        // Send to server for transcription
+        const formData = new FormData();
+        formData.append('audio', audioBlob);
+        
+        // Call Whisper API
+        const response = await fetch('http://127.0.0.1:5000/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Transcription failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Only process if we actually got a transcript
+        if (data.transcript && data.transcript.trim() !== '') {
+          // Call the result handler with the transcript
+          onResult(data.transcript, true);
+          
+          // Start silence timer after successful transcription
+          silenceTimer = window.setTimeout(() => {
+            onSilence();
+          }, 1000); // Shorter timeout after a full transcription
+        }
+        
+        // Start recording again if we should continue
+        if (isRecording && !shouldStop) {
+          audioChunks = [];
+          mediaRecorder?.start(1000); // Record in 1-second chunks
+        }
+      } catch (error) {
+        console.error('Whisper transcription error:', error);
+      }
+    };
+    
+    // Start recording
+    audioChunks = [];
+    mediaRecorder.start(3000); // Record in 3-second chunks
+    isRecording = true;
+    
+    // Set up silence detection
+    silenceTimer = window.setTimeout(() => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+      }
+    }, silenceThreshold);
+    
+  }).catch(error => {
+    console.error('Error accessing microphone:', error);
+  });
+  
+  // Return control methods
+  return {
+    stop: () => {
+      shouldStop = true;
+      isRecording = false;
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+      }
+      if (silenceTimer !== null) {
+        window.clearTimeout(silenceTimer);
       }
     },
-    
     abort: () => {
-      if (recognition) {
-        recognition.abort();
+      shouldStop = true;
+      isRecording = false;
+      audioChunks = [];
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+      }
+      if (silenceTimer !== null) {
+        window.clearTimeout(silenceTimer);
       }
     }
-  }
+  };
+};
+
+// Export speech utils
+export const speechUtils = {
+  getVoices,
+  getVoiceByLang,
+  speak,
+  cancel,
+  recognition
 };

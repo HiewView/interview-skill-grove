@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { Mic, MicOff, AlertCircle, Send } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 import VideoFeed from '../ui/VideoFeed';
+import { Textarea } from '../ui/textarea';
 import { interviewService } from '../../services/interviewService';
 import { speechUtils } from '../../utils/speechUtils';
-import ProgressHeader from './ProgressHeader';
-import AIInterviewer from './AIInterviewer';
-import ConversationDisplay from './ConversationDisplay';
-import AnswerInput from './AnswerInput';
+import { Switch } from '../ui/switch';
+import { useNavigate } from 'react-router-dom';
 
 interface InterviewInterfaceProps {
   sessionId: string;
@@ -25,10 +24,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
-  const [silenceDetectionActive, setSilenceDetectionActive] = useState(true);
+  const [useWhisper, setUseWhisper] = useState(true); // Default to using Whisper
+  const conversationRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<{ stop: () => void; abort: () => void } | null>(null);
+  const navigate = useNavigate();
   
   // Initialize audio context
   useEffect(() => {
@@ -49,38 +50,53 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     streamRef.current = stream;
   };
 
-  // Start speech recognition with Whisper
+  // Start speech recognition
   const startListening = () => {
+    if (!useWhisper && !speechUtils.recognition.isSupported()) {
+      toast({
+        title: "Speech Recognition Not Supported",
+        description: "Your browser doesn't support speech recognition. Try using Whisper instead.",
+        variant: "destructive"
+      });
+      setUseWhisper(true);
+      return;
+    }
+
     if (recognitionRef.current) {
       recognitionRef.current.abort();
     }
 
     // Only start if not muted
     if (!isMuted) {
-      recognitionRef.current = speechUtils.recognition.startWhisperRecognition(
-        // Intentionally not showing interim results
+      recognitionRef.current = speechUtils.recognition.start(
+        // On result
         (transcript, isFinal) => {
-          // Only show final transcripts from backend
-          if (isFinal && transcript !== "Processing your speech...") {
+          if (isFinal) {
             setCurrentAnswer(prev => {
               const newAnswer = prev ? `${prev} ${transcript}` : transcript;
               return newAnswer.trim();
             });
+            setInterimTranscript('');
+          } else {
+            setInterimTranscript(transcript);
           }
         },
         // On silence (user stopped speaking)
         () => {
-          console.log("Silence detected, submitting answer");
-          if (currentAnswer.trim()) {
-            handleSubmitAnswer(currentAnswer.trim());
+          if (currentAnswer.trim() || interimTranscript.trim()) {
+            const finalAnswer = currentAnswer || interimTranscript;
+            setCurrentAnswer(finalAnswer.trim());
+            handleSubmitAnswer(finalAnswer.trim());
+            setInterimTranscript('');
           }
         },
-        1500 // Reduced silence threshold to 1.5 seconds
+        3000, // 3 seconds of silence threshold
+        useWhisper // Use Whisper if enabled
       );
       setIsListening(true);
       toast({
         title: "Listening",
-        description: "Speak your answer. Using backend speech recognition.",
+        description: `Speak your answer. Using ${useWhisper ? "Whisper" : "browser"} speech recognition.`,
       });
     }
   };
@@ -112,8 +128,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           experience: formData.experience || "3",
           resume_text: formData.resumeText || "",
           organization_id: templateInfo?.organization_id,
-          template_id: templateInfo?.id,
-          use_whisper: true // Always use whisper
+          template_id: templateInfo?.id
         });
         
         if (response.first_question) {
@@ -167,6 +182,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     
     return () => clearInterval(interval);
   }, [timer]);
+  
+  // Scroll to bottom of conversation
+  useEffect(() => {
+    if (conversationRef.current) {
+      conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
+    }
+  }, [transcription]);
   
   // Text-to-speech functionality
   const speakText = async (text: string) => {
@@ -242,21 +264,46 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   };
   
-  const handleEndInterview = () => {
+  const handleEndInterview = async () => {
     // Cancel any ongoing speech
     speechUtils.cancel();
     stopListening();
     
-    // In a real app, this would save the interview results
-    toast({
-      title: "Interview Completed",
-      description: "Your interview has been completed and recorded",
-    });
+    setIsLoading(true);
     
-    // Redirect to a thank you or results page
-    setTimeout(() => {
-      window.location.href = '/';
-    }, 2000);
+    try {
+      // End the interview session and generate initial report
+      const response = await fetch(`http://127.0.0.1:5000/interview/end_interview`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ session_id: sessionId })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      toast({
+        title: "Interview Completed",
+        description: "Your interview has been completed and report is being generated",
+      });
+      
+      // Redirect to the report page
+      navigate(`/report/${data.report_id}`);
+    } catch (error) {
+      console.error("Error ending interview:", error);
+      toast({
+        title: "Error",
+        description: "Failed to end interview. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   // Toggle microphone
@@ -270,14 +317,41 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   };
   
+  // Toggle between Whisper and browser recognition
+  const toggleWhisper = () => {
+    stopListening();
+    setUseWhisper(!useWhisper);
+    
+    // Restart listening with new recognition type
+    setTimeout(() => {
+      if (!isMuted) {
+        startListening();
+      }
+    }, 300);
+  };
+  
+  // Format time as MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+  
   return (
     <div className="flex flex-col h-full">
       {/* Header with progress and timer */}
-      <ProgressHeader 
-        timer={timer} 
-        progress={progress} 
-        silenceDetection={silenceDetectionActive}
-      />
+      <div className="px-6 py-4 border-b">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">Interview Progress</span>
+          <span className="text-sm font-medium">{formatTime(timer)}</span>
+        </div>
+        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-primary transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+      </div>
       
       {/* Main interview interface */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
@@ -289,37 +363,128 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             onStreamReady={handleStreamReady}
           />
           
-          <AIInterviewer 
-            isLoading={isLoading}
-            isListening={isListening}
-            ttsEnabled={ttsEnabled}
-            setTtsEnabled={setTtsEnabled}
-            useWhisper={true}
-            toggleWhisper={() => {}} // Empty function since we don't toggle anymore
-          />
+          <div className="glass-card h-72 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-24 h-24 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
+                <span className="text-3xl">🤖</span>
+              </div>
+              <h3 className="text-lg font-medium">AI Interviewer</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isLoading ? "Processing..." : (isListening ? "Listening..." : "Ready")}
+              </p>
+              
+              <div className="mt-4 flex flex-col items-center justify-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">TTS</span>
+                  <Switch 
+                    checked={ttsEnabled} 
+                    onCheckedChange={setTtsEnabled} 
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-sm">Whisper STT</span>
+                  <Switch 
+                    checked={useWhisper} 
+                    onCheckedChange={toggleWhisper} 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
         {/* Transcription and controls */}
         <div className="flex flex-col space-y-6">
-          <ConversationDisplay
-            transcription={transcription}
-            interimTranscript={interimTranscript}
-            isListening={isListening}
-            currentQuestion={currentQuestion}
-          />
+          <div className="flex-1 glass-card overflow-hidden flex flex-col">
+            <h3 className="text-lg font-medium mb-4">Current Question</h3>
+            <div className="bg-muted/50 rounded-lg p-4 mb-4">
+              <p className="text-lg">{currentQuestion || "Loading..."}</p>
+            </div>
+            
+            <h3 className="text-lg font-medium mb-2">Conversation</h3>
+            <div 
+              ref={conversationRef}
+              className="flex-1 overflow-y-auto rounded-lg bg-muted/30 p-4 space-y-3"
+            >
+              {transcription.map((text, index) => (
+                <div 
+                  key={index} 
+                  className={`p-3 rounded-lg ${
+                    text.startsWith('AI:') 
+                      ? 'bg-primary/10 text-foreground mr-12' 
+                      : 'bg-secondary text-foreground ml-12'
+                  } animate-in slide-in-from-bottom-2 duration-300`}
+                >
+                  <p>{text}</p>
+                </div>
+              ))}
+              
+              {isListening && interimTranscript && (
+                <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12 animate-pulse">
+                  <p>You: {interimTranscript}</p>
+                </div>
+              )}
+              
+              {transcription.length === 0 && !isListening && (
+                <div className="text-center p-6 text-muted-foreground">
+                  <p>Your conversation will appear here</p>
+                </div>
+              )}
+            </div>
+          </div>
           
           {/* Input area */}
-          <AnswerInput
-            currentAnswer={currentAnswer}
-            setCurrentAnswer={setCurrentAnswer}
-            handleSubmitAnswer={handleSubmitAnswer}
-            isLoading={isLoading}
-            isMuted={isMuted}
-            isListening={isListening}
-            interimTranscript={interimTranscript}
-            toggleMicrophone={toggleMicrophone}
-            handleEndInterview={handleEndInterview}
-          />
+          <div className="flex flex-col space-y-4">
+            <div className="flex gap-2">
+              <Textarea
+                value={currentAnswer}
+                onChange={(e) => setCurrentAnswer(e.target.value)}
+                placeholder={isListening ? "Listening to your voice..." : "Type your answer here..."}
+                className="flex-1 resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmitAnswer();
+                  }
+                }}
+              />
+              <button 
+                className="p-3 bg-primary text-primary-foreground rounded-md self-end hover:bg-primary/90 transition-colors"
+                onClick={() => handleSubmitAnswer()}
+                disabled={isLoading || (!currentAnswer.trim() && !interimTranscript.trim())}
+              >
+                <Send size={20} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <button 
+                className={`p-4 rounded-full ${
+                  isMuted 
+                    ? 'bg-destructive text-destructive-foreground' 
+                    : isListening 
+                      ? 'bg-green-500 text-white animate-pulse' 
+                      : 'bg-muted hover:bg-muted/80'
+                } transition-all duration-300`}
+                onClick={toggleMicrophone}
+                aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+              >
+                {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+              
+              <button 
+                className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors"
+                onClick={handleEndInterview}
+              >
+                End Interview
+              </button>
+              
+              <button className="p-4 rounded-full bg-muted hover:bg-muted/80">
+                <AlertCircle size={20} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
