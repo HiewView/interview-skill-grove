@@ -42,7 +42,6 @@ const Interview: React.FC = () => {
       role: templateInfo?.role || parsedFormData?.role || '',
       experience: parsedFormData?.experience || '',
       resumeText: parsedFormData?.resumeText || ''
-      // Removed useWhisper as we're always using it now
     }
   });
 

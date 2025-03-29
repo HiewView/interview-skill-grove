@@ -36,16 +36,18 @@ export const reportService = {
   async getReports(): Promise<Report[]> {
     try {
       const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No authentication token found');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      // Add auth token if available
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
       
       const response = await fetch(`${API_URL}/interview/reports`, {
         method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        }
+        headers
       });
       
       if (!response.ok) {
@@ -66,16 +68,18 @@ export const reportService = {
   async getReportById(reportId: string): Promise<Report> {
     try {
       const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No authentication token found');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      // Add auth token if available
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
       
       const response = await fetch(`${API_URL}/interview/reports/${reportId}`, {
         method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        }
+        headers
       });
       
       if (!response.ok) {

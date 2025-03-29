@@ -81,12 +81,11 @@ export const speechUtils = {
     // Check if speech recognition is supported
     isSupported: () => !!recognition,
     
-    // Start speech recognition (kept for backward compatibility)
+    // Start speech recognition (always use Whisper now)
     start: (
       onResult: (transcript: string, isFinal: boolean) => void, 
       onSilence?: () => void, 
-      silenceThreshold: number = 1500,
-      useWhisper: boolean = true // Default to always use Whisper
+      silenceThreshold: number = 1500
     ) => {
       // Always use Whisper now
       return speechUtils.recognition.startWhisperRecognition(onResult, onSilence, silenceThreshold);
@@ -257,9 +256,6 @@ export const speechUtils = {
           mediaRecorder.onstop = async () => {
             // Only process if we have audio data
             if (audioChunks.length > 0) {
-              // Don't show interim processing messages
-              // onResult("Processing your speech...", false);
-              
               // Create audio blob from chunks
               const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
               
@@ -274,6 +270,12 @@ export const speechUtils = {
                   body: formData
                 });
                 
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  console.error('Error from transcription server:', errorText);
+                  throw new Error(`Server error: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 
                 if (data.transcript) {
@@ -287,7 +289,10 @@ export const speechUtils = {
                 }
               } catch (error) {
                 console.error('Error transcribing audio with Whisper:', error);
-                // Don't show error to user
+                // Show error to user in development
+                if (process.env.NODE_ENV === 'development') {
+                  onResult("Error transcribing. Check console.", true);
+                }
               }
               
               // Reset audio chunks for next recording
@@ -307,9 +312,6 @@ export const speechUtils = {
           
           // Setup silence detection
           setupSilenceDetection(stream);
-          
-          // Don't show interim feedback
-          // onResult("Listening...", false);
         })
         .catch(error => {
           console.error('Error accessing microphone:', error);

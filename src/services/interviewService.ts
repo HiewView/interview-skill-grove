@@ -1,3 +1,4 @@
+
 /**
  * Service for communicating with the interview backend API
  */
@@ -87,6 +88,10 @@ export const interviewService = {
         body: JSON.stringify(params),
       });
       
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
       return await response.json();
     } catch (error) {
       console.error("Error starting interview:", error);
@@ -106,6 +111,10 @@ export const interviewService = {
         },
         body: JSON.stringify(params),
       });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
       
       return await response.json();
     } catch (error) {
@@ -199,6 +208,12 @@ export const interviewService = {
         method: "POST",
         body: formData
       });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Transcription error response:", errorText);
+        throw new Error(`Transcription error: ${response.status}`);
+      }
       
       return await response.json();
     } catch (error) {
