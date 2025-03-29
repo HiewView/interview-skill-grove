@@ -1,0 +1,34 @@
+
+from flask_sqlalchemy import SQLAlchemy
+from flask_pymongo import PyMongo
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager
+
+# Initialize extensions
+db = SQLAlchemy()  # For structured data (users, organizations, interview sessions)
+mongo = PyMongo()  # For non-structured data (detailed interview reports)
+bcrypt = Bcrypt()  # For password hashing
+jwt = JWTManager()  # For JWT authentication
+
+def init_db(app):
+    """Initialize all database connections and authentication tools"""
+    # Configure SQLAlchemy
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///interview_app.db'  # SQLite for development
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # Configure MongoDB
+    app.config['MONGO_URI'] = 'mongodb://localhost:27017/interview_reports'
+    
+    # Configure JWT
+    app.config['JWT_SECRET_KEY'] = app.config.get('SECRET_KEY', 'dev-key-change-in-production')
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 3600  # 1 hour
+    
+    # Initialize extensions with app
+    db.init_app(app)
+    mongo.init_app(app)
+    bcrypt.init_app(app)
+    jwt.init_app(app)
+    
+    # Create all tables in SQLite if they don't exist
+    with app.app_context():
+        db.create_all()
