@@ -1,55 +1,81 @@
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import ReportCard from '../components/ReportCard';
 import { Download, Share, ChevronLeft } from 'lucide-react';
-
-interface Report {
-  _id: string;
-  date: string;
-  role?: string;
-  overall_score: number;
-  technical_metrics: Array<{name: string; value: number; color: string}>;
-  communication_metrics: Array<{name: string; value: number; color: string}>;
-  personality_metrics: Array<{name: string; value: number; color: string}>;
-}
+import { reportService, Report as ReportType } from '../services/reportService';
+import { toast } from '../hooks/use-toast';
 
 const Report: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const reportId = searchParams.get('id');
-  const [report, setReport] = useState<Report | null>(null);
+  // Get the report ID from URL params instead of search params
+  const { id: reportId } = useParams<{ id: string }>();
+  const [report, setReport] = useState<ReportType | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, fetch the specific report from API using reportId
-    // For now, using mock data
-    setLoading(true);
-    
-    // Simulate API call delay
-    setTimeout(() => {
-      setReport({
-        _id: reportId || '1',
-        date: '2023-06-15',
-        role: 'Software Engineer',
-        overall_score: 85,
-        technical_metrics: [
-          { name: 'Technical Knowledge', value: 85, color: '#3b82f6' },
-          { name: 'Problem Solving', value: 78, color: '#3b82f6' },
-          { name: 'Code Quality', value: 92, color: '#3b82f6' },
-        ],
-        communication_metrics: [
-          { name: 'Clarity of Expression', value: 88, color: '#10b981' },
-          { name: 'Articulation', value: 92, color: '#10b981' },
-          { name: 'Active Listening', value: 75, color: '#10b981' },
-        ],
-        personality_metrics: [
-          { name: 'Confidence', value: 82, color: '#8b5cf6' },
-          { name: 'Adaptability', value: 90, color: '#8b5cf6' },
-          { name: 'Cultural Fit', value: 85, color: '#8b5cf6' },
-        ]
-      });
-      setLoading(false);
-    }, 500);
+    const fetchReport = async () => {
+      if (!reportId) {
+        toast({
+          title: "Error",
+          description: "No report ID provided",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        
+        // Check if we're in development mode (no auth token)
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          // In development, use mock data
+          setTimeout(() => {
+            setReport({
+              _id: reportId,
+              session_id: 's1',
+              user_id: 'u1',
+              date: '2023-06-15',
+              role: 'Software Engineer',
+              overall_score: 85,
+              technical_metrics: [
+                { name: 'Technical Knowledge', value: 85, color: '#3b82f6' },
+                { name: 'Problem Solving', value: 78, color: '#3b82f6' },
+                { name: 'Code Quality', value: 92, color: '#3b82f6' },
+              ],
+              communication_metrics: [
+                { name: 'Clarity of Expression', value: 88, color: '#10b981' },
+                { name: 'Articulation', value: 92, color: '#10b981' },
+                { name: 'Active Listening', value: 75, color: '#10b981' },
+              ],
+              personality_metrics: [
+                { name: 'Confidence', value: 82, color: '#8b5cf6' },
+                { name: 'Adaptability', value: 90, color: '#8b5cf6' },
+                { name: 'Cultural Fit', value: 85, color: '#8b5cf6' },
+              ]
+            });
+            setLoading(false);
+          }, 500);
+          return;
+        }
+        
+        // If in production with real auth, fetch report from backend
+        const fetchedReport = await reportService.getReportById(reportId);
+        setReport(fetchedReport);
+      } catch (error) {
+        console.error(`Failed to fetch report ${reportId}:`, error);
+        toast({
+          title: "Error",
+          description: "Failed to load the interview report. Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReport();
   }, [reportId]);
 
   const formatDate = (dateString: string) => {
@@ -97,7 +123,7 @@ const Report: React.FC = () => {
               <h1 className="text-3xl font-medium">Interview Performance Report</h1>
             </div>
             <p className="text-foreground/70">
-              {report.role} Interview • {formatDate(report.date)}
+              {report.role || 'Interview'} • {formatDate(report.date)}
             </p>
           </div>
           

@@ -2,46 +2,77 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, PieChart, Clock, Award, ChevronRight, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-interface InterviewReport {
-  _id: string;
-  date: string;
-  overall_score: number;
-  session_id: string;
-  role?: string;
-}
+import { reportService, Report } from '../services/reportService';
+import { toast } from "../hooks/use-toast";
 
 const Dashboard: React.FC = () => {
-  const [reports, setReports] = useState<InterviewReport[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, fetch reports from API
-    // For now, using mock data
-    setReports([
-      {
-        _id: '1',
-        session_id: 's1',
-        date: '2023-06-15',
-        overall_score: 85,
-        role: 'Software Engineer'
-      },
-      {
-        _id: '2',
-        session_id: 's2',
-        date: '2023-06-10',
-        overall_score: 92,
-        role: 'Product Manager'
-      },
-      {
-        _id: '3',
-        session_id: 's3',
-        date: '2023-06-05',
-        overall_score: 78,
-        role: 'Data Scientist'
+    const fetchReports = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Check if we're in development mode (no auth token)
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          // In development, use mock data
+          setReports([
+            {
+              _id: '1',
+              session_id: 's1',
+              user_id: 'u1',
+              date: '2023-06-15',
+              overall_score: 85,
+              role: 'Software Engineer',
+              technical_metrics: [],
+              communication_metrics: [],
+              personality_metrics: [],
+            },
+            {
+              _id: '2',
+              session_id: 's2',
+              user_id: 'u1',
+              date: '2023-06-10',
+              overall_score: 92,
+              role: 'Product Manager',
+              technical_metrics: [],
+              communication_metrics: [],
+              personality_metrics: [],
+            },
+            {
+              _id: '3',
+              session_id: 's3',
+              user_id: 'u1',
+              date: '2023-06-05',
+              overall_score: 78,
+              role: 'Data Scientist',
+              technical_metrics: [],
+              communication_metrics: [],
+              personality_metrics: [],
+            }
+          ]);
+          setIsLoading(false);
+          return;
+        }
+        
+        // If in production with real auth, fetch reports from backend
+        const fetchedReports = await reportService.getReports();
+        setReports(fetchedReports);
+      } catch (error) {
+        console.error("Failed to fetch reports:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your interview reports. Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-    ]);
-    setIsLoading(false);
+    };
+
+    fetchReports();
   }, []);
 
   const formatDate = (dateString: string) => {
@@ -123,7 +154,7 @@ const Dashboard: React.FC = () => {
           </Link>
           
           <Link 
-            to={reports.length > 0 ? `/report?id=${reports[0]._id}` : "/dashboard"} 
+            to={reports.length > 0 ? `/report/${reports[0]._id}` : "/dashboard"} 
             className="glass-card hover:shadow-glass-lg transition-all hover:-translate-y-1 group"
           >
             <div className="flex justify-between items-center">
@@ -159,7 +190,7 @@ const Dashboard: React.FC = () => {
             <div className="space-y-4">
               {reports.map((report) => (
                 <div key={report._id} className="glass-card hover:shadow-glass-lg transition-all group">
-                  <Link to={`/report?id=${report._id}`} className="block">
+                  <Link to={`/report/${report._id}`} className="block">
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="text-lg font-medium">{report.role || 'Interview'} Session</h3>

@@ -26,6 +26,7 @@ export interface Report {
     answer: string;
     assessment: string;
   }>;
+  role?: string; // Optional role field
 }
 
 export const reportService = {
