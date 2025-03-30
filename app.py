@@ -13,11 +13,18 @@ import os
 import mutagen.mp3
 from flask_cors import CORS
 import tempfile
+from auth_routes import auth_bp
+from interview_routes import interview_bp
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend integration
+# Configure CORS to allow all origins and methods, including OPTIONS
+CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})
+
+# Register blueprints
+app.register_blueprint(auth_bp, url_prefix='/auth')
+app.register_blueprint(interview_bp, url_prefix='/interview')
 
 # Load FastWhisper Model
 whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
@@ -30,52 +37,16 @@ VOICE = "en-US-JennyNeural"
 
 interview_sessions = {}
 
-def extract_text_from_pdf(pdf_path):
-    """Extracts text from an uploaded PDF resume."""
-    reader = PdfReader(pdf_path)
-    text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-    return text
+# ... keep existing code (helper functions like extract_text_from_pdf, generate_next_question, text_to_speech)
 
-async def generate_next_question(session_id, user_answer):
-    """Generates the next interview question dynamically."""
-    session = interview_sessions.get(session_id, {})
-    memory_text = "\n".join([f"Q: {q}\nA: {a}" for q, a in session.get("memory", [])])
-    
-    prompt = f"""
-    You are an AI interviewer conducting an interview for a candidate.
-    
-    ## Candidate Details:
-    Name: {session.get('name', 'Unknown')}
-    Role: {session.get('role', 'Not Specified')}
-    Experience: {session.get('experience', '0')} years
-    
-    ## Resume Details:
-    {session.get('resume_text', '')}
-    
-    ## Previous Questions & Answers:
-    {memory_text}
-    
-    ## Candidate's Answer:
-    {user_answer}
-    
-    Generate the next best interview question, ensuring variety across skills and topics:
-    """
-    
-    response_text = ""
-    async for chunk in llm.astream(prompt):
-        response_text += chunk.content
-    return response_text.strip()
-
-async def text_to_speech(text):
-    """Converts text to speech and returns file path."""
-    tts = edge_tts.Communicate(text, voice=VOICE)
-    output_path = "output.mp3"
-    await tts.save(output_path)
-    return output_path
-
-@app.route("/start_interview", methods=["POST"])
+@app.route("/start_interview", methods=["POST", "OPTIONS"])
 def start_interview():
     """Initializes interview session."""
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+    
+    # ... keep existing code (the actual POST handling)
     data = request.json
     session_id = data.get("session_id")
     interview_sessions[session_id] = {
@@ -87,9 +58,14 @@ def start_interview():
     }
     return jsonify({"message": "Interview started!", "first_question": "Hello, welcome to the interview! Can you briefly introduce yourself?"})
 
-@app.route("/submit_answer", methods=["POST"])
+@app.route("/submit_answer", methods=["POST", "OPTIONS"])
 def submit_answer():
     """Handles answer submission and generates next question."""
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+    
+    # ... keep existing code (the actual POST handling)
     data = request.json
     session_id = data.get("session_id")
     user_answer = data.get("answer")
@@ -104,9 +80,14 @@ def submit_answer():
     
     return jsonify({"next_question": next_question})
 
-@app.route("/transcribe", methods=["POST"])
+@app.route("/transcribe", methods=["POST", "OPTIONS"])
 def transcribe():
     """Transcribes audio using Whisper model."""
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+        
+    # ... keep existing code (the actual POST handling for audio transcription)
     if 'audio' not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
     
@@ -136,9 +117,14 @@ def transcribe():
         
         return jsonify({"error": f"Transcription failed: {str(e)}"}), 500
 
-@app.route("/generate_report", methods=["GET"])
+@app.route("/generate_report", methods=["GET", "OPTIONS"])
 def generate_report():
     """Generates interview summary report."""
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+    
+    # ... keep existing code (the actual GET handling)
     session_id = request.args.get("session_id")
     session = interview_sessions.get(session_id, {})
     
@@ -155,9 +141,14 @@ def generate_report():
     
     return jsonify(report)
 
-@app.route("/interview/reports/<report_id>", methods=["GET"])
+@app.route("/interview/reports/<report_id>", methods=["GET", "OPTIONS"])
 def get_report_by_id(report_id):
     """Gets a specific report by ID."""
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+    
+    # ... keep existing code (the actual GET handling)
     session = interview_sessions.get(report_id, {})
     
     if not session:
@@ -200,9 +191,14 @@ def get_report_by_id(report_id):
     
     return jsonify({"report": report})
 
-@app.route("/interview/reports", methods=["GET"])
+@app.route("/interview/reports", methods=["GET", "OPTIONS"])
 def get_all_reports():
     """Gets all reports for the current user."""
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+    
+    # ... keep existing code (the actual GET handling)
     # In a real app, you would filter by authenticated user
     reports = []
     
