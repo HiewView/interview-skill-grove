@@ -1,13 +1,17 @@
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from models import User, Organization
 from db_config import db, bcrypt, jwt
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 auth_bp = Blueprint('auth', __name__)
 
-@auth_bp.route('/register', methods=['POST'])
+@auth_bp.route('/register', methods=['POST', 'OPTIONS'])
 def register():
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+        
     data = request.get_json()
     
     # Check if required fields are present
@@ -59,8 +63,12 @@ def register():
         }
     }), 201
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/login', methods=['POST', 'OPTIONS'])
 def login():
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+        
     data = request.get_json()
     
     if not all(k in data for k in ('email', 'password')):
@@ -86,9 +94,13 @@ def login():
     
     return jsonify({'error': 'Invalid email or password'}), 401
 
-@auth_bp.route('/profile', methods=['GET'])
+@auth_bp.route('/profile', methods=['GET', 'OPTIONS'])
 @jwt_required()
 def profile():
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+        
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
     

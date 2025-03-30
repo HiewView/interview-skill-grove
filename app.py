@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 import soundfile as sf
 import numpy as np
@@ -15,12 +14,19 @@ from flask_cors import CORS
 import tempfile
 from auth_routes import auth_bp
 from interview_routes import interview_bp
+from db_config import init_db
 
 load_dotenv()
 
 app = Flask(__name__)
 # Configure CORS to allow all origins and methods, including OPTIONS
 CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})
+
+# Set secret key for sessions and JWT
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Initialize database and extensions
+init_db(app)
 
 # Register blueprints
 app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -37,7 +43,61 @@ VOICE = "en-US-JennyNeural"
 
 interview_sessions = {}
 
-# ... keep existing code (helper functions like extract_text_from_pdf, generate_next_question, text_to_speech)
+# Helper functions like extract_text_from_pdf, generate_next_question, text_to_speech
+def extract_text_from_pdf(pdf_path):
+    """Extracts text from a PDF file."""
+    text = ""
+    with open(pdf_path, "rb") as file:
+        pdf_reader = PdfReader(file)
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+    return text
+
+async def generate_next_question(session_id, user_answer):
+    """Generates the next interview question using Groq LLM."""
+    session = interview_sessions.get(session_id, {})
+    
+    if not session:
+        return "Error: Invalid session."
+    
+    resume_text = session.get("resume_text", "")
+    role = session.get("role", "Software Engineer")
+    experience = session.get("experience", "5 years")
+    memory = session.get("memory", [])
+    
+    # Format conversation history
+    conversation_history = "\n".join([f"{speaker}: {text}" for speaker, text in memory])
+    
+    prompt = f"""
+    You are an interviewer for the role of {role} with {experience} of experience.
+    The candidate's resume text is: {resume_text}.
+    Here is the current conversation history:
+    {conversation_history}
+    
+    Now, generate the next question to ask the candidate.
+    The question should be relevant to the role and the candidate's experience.
+    The question should be open-ended and encourage the candidate to elaborate.
+    """
+    
+    try:
+        response = llm.invoke(prompt)
+        return response.content
+    except Exception as e:
+        print(f"Error generating next question: {e}")
+        return "Could you please elaborate on your previous answer?"
+
+async def text_to_speech(text, filename="output.mp3"):
+    """Converts text to speech using EdgeTTS."""
+    communicate = edge_tts.Communicate(text, VOICE)
+    try:
+        with open(filename, "wb") as output:
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    output.write(chunk["data"])
+        return filename
+    except Exception as e:
+        print(f"Error during TTS: {e}")
+        return None
 
 @app.route("/start_interview", methods=["POST", "OPTIONS"])
 def start_interview():
@@ -46,7 +106,6 @@ def start_interview():
         # Handle OPTIONS request for CORS preflight
         return "", 204
     
-    # ... keep existing code (the actual POST handling)
     data = request.json
     session_id = data.get("session_id")
     interview_sessions[session_id] = {
@@ -65,7 +124,6 @@ def submit_answer():
         # Handle OPTIONS request for CORS preflight
         return "", 204
     
-    # ... keep existing code (the actual POST handling)
     data = request.json
     session_id = data.get("session_id")
     user_answer = data.get("answer")
@@ -87,7 +145,6 @@ def transcribe():
         # Handle OPTIONS request for CORS preflight
         return "", 204
         
-    # ... keep existing code (the actual POST handling for audio transcription)
     if 'audio' not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
     
@@ -124,7 +181,6 @@ def generate_report():
         # Handle OPTIONS request for CORS preflight
         return "", 204
     
-    # ... keep existing code (the actual GET handling)
     session_id = request.args.get("session_id")
     session = interview_sessions.get(session_id, {})
     
@@ -148,7 +204,6 @@ def get_report_by_id(report_id):
         # Handle OPTIONS request for CORS preflight
         return "", 204
     
-    # ... keep existing code (the actual GET handling)
     session = interview_sessions.get(report_id, {})
     
     if not session:
@@ -198,7 +253,6 @@ def get_all_reports():
         # Handle OPTIONS request for CORS preflight
         return "", 204
     
-    # ... keep existing code (the actual GET handling)
     # In a real app, you would filter by authenticated user
     reports = []
     
