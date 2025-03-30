@@ -32,6 +32,7 @@ interface OrganizationTemplate {
   description: string;
   rules: string;
   questions: string[];
+  job_description?: string;
 }
 
 interface Candidate {
@@ -80,11 +81,18 @@ export const interviewService = {
    */
   async startInterview(params: StartInterviewParams): Promise<InterviewResponse> {
     try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`${API_URL}/start_interview`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(params),
       });
       
@@ -104,11 +112,18 @@ export const interviewService = {
    */
   async submitAnswer(params: SubmitAnswerParams): Promise<InterviewResponse> {
     try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`${API_URL}/submit_answer`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(params),
       });
       
@@ -122,11 +137,49 @@ export const interviewService = {
       throw error;
     }
   },
+  
+  /**
+   * End the interview session
+   */
+  async endInterview(sessionId: string): Promise<{ report_id: string }> {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_URL}/interview/end_interview`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error("Error ending interview:", error);
+      throw error;
+    }
+  },
 
   /**
    * Create or update an interview template
    */
-  createTemplate(template: Partial<OrganizationTemplate> & { name: string; role: string; description: string; rules: string; questions: string[] }): OrganizationTemplate {
+  createTemplate(template: Partial<OrganizationTemplate> & { 
+    name: string; 
+    role: string; 
+    description: string; 
+    rules: string; 
+    questions: string[];
+    job_description?: string;
+  }): OrganizationTemplate {
     const newTemplate: OrganizationTemplate = {
       ...template,
       id: template.id || generateSessionId(),
@@ -218,6 +271,36 @@ export const interviewService = {
       return await response.json();
     } catch (error) {
       console.error("Error transcribing audio:", error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Compare candidates for a specific job description
+   */
+  async compareCandidates(templateId: string): Promise<any> {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_URL}/interview/compare-candidates/${templateId}`, {
+        method: "GET",
+        headers
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error("Error comparing candidates:", error);
       throw error;
     }
   }

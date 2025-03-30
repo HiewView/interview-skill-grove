@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, AlertCircle, Send } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
@@ -7,6 +8,16 @@ import { interviewService } from '../../services/interviewService';
 import { speechUtils } from '../../utils/speechUtils';
 import { Switch } from '../ui/switch';
 import { useNavigate } from 'react-router-dom';
+import { 
+  AlertDialog, 
+  AlertDialogContent, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction
+} from '../ui/alert-dialog';
 
 interface InterviewInterfaceProps {
   sessionId: string;
@@ -25,6 +36,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [useWhisper, setUseWhisper] = useState(true); // Default to using Whisper
+  const [endInterviewOpen, setEndInterviewOpen] = useState(false);
   const conversationRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -269,40 +281,36 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     speechUtils.cancel();
     stopListening();
     
-    setIsLoading(true);
-    
     try {
-      // End the interview session and generate initial report
-      const response = await fetch(`http://127.0.0.1:5000/interview/end_interview`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ session_id: sessionId })
-      });
+      setIsLoading(true);
       
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      // End interview on server
+      const result = await interviewService.endInterview(sessionId);
       
       toast({
         title: "Interview Completed",
-        description: "Your interview has been completed and report is being generated",
+        description: "Your interview has been completed and recorded",
       });
       
-      // Redirect to the report page
-      navigate(`/report/${data.report_id}`);
+      // Navigate to report page
+      if (result.report_id) {
+        setTimeout(() => {
+          navigate(`/report/${result.report_id}`);
+        }, 1000);
+      } else {
+        navigate('/dashboard');
+      }
+      
     } catch (error) {
       console.error("Error ending interview:", error);
       toast({
         title: "Error",
-        description: "Failed to end interview. Please try again.",
+        description: "Failed to end the interview. Please try again.",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
+      setEndInterviewOpen(false);
     }
   };
   
@@ -475,7 +483,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               
               <button 
                 className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors"
-                onClick={handleEndInterview}
+                onClick={() => setEndInterviewOpen(true)}
+                disabled={isLoading}
               >
                 End Interview
               </button>
@@ -487,6 +496,28 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           </div>
         </div>
       </div>
+      
+      {/* End Interview Confirmation Dialog */}
+      <AlertDialog open={endInterviewOpen} onOpenChange={setEndInterviewOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Interview</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to end this interview? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleEndInterview} 
+              disabled={isLoading}
+              className={isLoading ? "opacity-50 cursor-not-allowed" : ""}
+            >
+              {isLoading ? "Ending..." : "Yes, end interview"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

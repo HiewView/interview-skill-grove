@@ -86,17 +86,21 @@ def generate_report(session_id):
     user = User.query.get(session.user_id)
     template = None
     role = "Not specified"
+    job_description = ""
     
     if session.template_id:
         template = InterviewTemplate.query.get(session.template_id)
         if template:
             role = template.role
+            job_description = template.job_description if hasattr(template, 'job_description') else ""
     
     # Generate metrics and analysis with LLM
     report_prompt = f"""
     You are an expert interview evaluator. You need to analyze the following interview transcript and generate a structured evaluation report.
     
     Role being applied for: {role}
+    
+    Job Description: {job_description}
     
     Interview transcript:
     {qa_text}
@@ -204,6 +208,7 @@ def generate_report(session_id):
         "date": datetime.utcnow(),
         "overall_score": overall_score,
         "role": role,
+        "job_description": job_description,
         "technical_metrics": ai_analysis['technical_metrics'],
         "communication_metrics": ai_analysis['communication_metrics'],
         "personality_metrics": ai_analysis['personality_metrics'],
@@ -250,3 +255,130 @@ def request_report_generation(session_id):
     
     # If no existing report, generate one
     return generate_report(session_id)
+
+@interview_bp.route('/compare-candidates/<template_id>', methods=['GET'])
+@jwt_required()
+def compare_candidates(template_id):
+    """Compare all candidates for a specific job template"""
+    # Get template details
+    template = InterviewTemplate.query.get(template_id)
+    if not template:
+        return jsonify({'error': 'Template not found'}), 404
+    
+    # Get all reports for this template's sessions
+    sessions = InterviewSession.query.filter_by(template_id=template_id, status='completed').all()
+    session_ids = [session.id for session in sessions]
+    
+    reports = []
+    for session_id in session_ids:
+        report = mongo.db.interview_reports.find_one({"session_id": session_id})
+        if report:
+            report["_id"] = str(report["_id"])
+            reports.append(report)
+    
+    # If no reports, return early
+    if not reports:
+        return jsonify({'message': 'No completed interviews found for this template'}), 200
+    
+    # Generate comparison using LLM
+    job_description = template.job_description if hasattr(template, 'job_description') else ""
+    role = template.role
+    
+    # Create a summary of each candidate
+    candidate_summaries = []
+    for report in reports:
+        tech_avg = sum(m["value"] for m in report["technical_metrics"]) / len(report["technical_metrics"])
+        comm_avg = sum(m["value"] for m in report["communication_metrics"]) / len(report["communication_metrics"])
+        pers_avg = sum(m["value"] for m in report["personality_metrics"]) / len(report["personality_metrics"])
+        
+        summary = {
+            "report_id": str(report["_id"]),
+            "session_id": report["session_id"],
+            "overall_score": report["overall_score"],
+            "technical_score": round(tech_avg, 1),
+            "communication_score": round(comm_avg, 1),
+            "personality_score": round(pers_avg, 1),
+            "strengths": [],
+            "weaknesses": []
+        }
+        
+        candidate_summaries.append(summary)
+    
+    # Generate comparison prompt
+    comparison_prompt = f"""
+    You are an expert recruiter tasked with comparing candidates for a role. Based on the following information:
+    
+    Role: {role}
+    
+    Job Description: {job_description}
+    
+    Candidate Evaluations:
+    {json.dumps(candidate_summaries, indent=2)}
+    
+    Please:
+    1. Rank the candidates from best to worst fit for this role.
+    2. For each candidate, identify key strengths and weaknesses based on their scores.
+    3. Provide a final recommendation on which candidate(s) should be considered for the role.
+    
+    Format your response as valid JSON with the following structure:
+    {{
+        "ranked_candidates": [
+            {{
+                "report_id": "candidate_report_id",
+                "rank": 1,
+                "strengths": ["strength1", "strength2"],
+                "weaknesses": ["weakness1", "weakness2"],
+                "recommendation": "Brief recommendation for this candidate"
+            }}
+        ],
+        "overall_recommendation": "Your final recommendation on who to hire and why"
+    }}
+    """
+    
+    try:
+        # Use LLM to generate comparison
+        llm_response = llm.invoke(comparison_prompt)
+        llm_content = llm_response.content
+        
+        # Extract JSON from the response
+        import re
+        json_match = re.search(r'```json\n(.*?)\n```', llm_content, re.DOTALL)
+        if json_match:
+            llm_content = json_match.group(1)
+        
+        # Parse the LLM response
+        comparison_result = json.loads(llm_content)
+        
+        # Add candidate details to results
+        for ranked_candidate in comparison_result.get('ranked_candidates', []):
+            report_id = ranked_candidate.get('report_id')
+            for report in reports:
+                if str(report.get('_id')) == report_id:
+                    ranked_candidate['overall_score'] = report.get('overall_score')
+                    # Add any other details needed
+                    break
+        
+        return jsonify({
+            'template': {
+                'id': template.id,
+                'name': template.name,
+                'role': template.role,
+                'job_description': job_description
+            },
+            'comparison': comparison_result,
+            'candidates': candidate_summaries,
+            'candidate_count': len(reports)
+        }), 200
+        
+    except Exception as e:
+        print(f"Error generating candidate comparison: {str(e)}")
+        return jsonify({
+            'error': 'Failed to generate comparison',
+            'template': {
+                'id': template.id,
+                'name': template.name,
+                'role': template.role
+            },
+            'candidates': candidate_summaries,
+            'candidate_count': len(reports)
+        }), 500

@@ -48,6 +48,7 @@ class InterviewTemplate(db.Model):
     description = db.Column(db.Text)
     rules = db.Column(db.Text)
     questions = db.Column(db.Text)  # Stored as JSON string
+    job_description = db.Column(db.Text)  # Added job description field
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships

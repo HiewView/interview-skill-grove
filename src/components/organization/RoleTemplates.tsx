@@ -1,24 +1,50 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash, File } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import { 
+  PlusCircle, 
+  Edit, 
+  Trash2, 
+  MoreVertical, 
+  Code, 
+  Users, 
+  Copy
+} from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle,
+  DialogTrigger 
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from "@/hooks/use-toast";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { toast } from '@/hooks/use-toast';
 import { interviewService } from '@/services/interviewService';
 
 const RoleTemplates: React.FC = () => {
   const [templates, setTemplates] = useState<any[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentTemplate, setCurrentTemplate] = useState<any>({
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [currentTemplate, setCurrentTemplate] = useState<any>(null);
+  const [formState, setFormState] = useState({
     name: '',
     role: '',
     description: '',
     rules: '',
-    questions: ['', '', ''] // Default 3 questions
+    jobDescription: '',
+    questions: ['', '', '']
   });
 
   // Load templates on component mount
@@ -27,314 +53,427 @@ const RoleTemplates: React.FC = () => {
     setTemplates(loadedTemplates);
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setCurrentTemplate(prev => ({ ...prev, [name]: value }));
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (!showAddModal && !showEditModal) {
+      setFormState({
+        name: '',
+        role: '',
+        description: '',
+        rules: '',
+        jobDescription: '',
+        questions: ['', '', '']
+      });
+    }
+  }, [showAddModal, showEditModal]);
+
+  // When editing, populate form with template data
+  useEffect(() => {
+    if (currentTemplate && showEditModal) {
+      setFormState({
+        name: currentTemplate.name || '',
+        role: currentTemplate.role || '',
+        description: currentTemplate.description || '',
+        rules: currentTemplate.rules || '',
+        jobDescription: currentTemplate.job_description || '',
+        questions: currentTemplate.questions || ['', '', '']
+      });
+    }
+  }, [currentTemplate, showEditModal]);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormState(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const handleQuestionChange = (index: number, value: string) => {
-    const updatedQuestions = [...currentTemplate.questions];
-    updatedQuestions[index] = value;
-    setCurrentTemplate(prev => ({ ...prev, questions: updatedQuestions }));
+    const newQuestions = [...formState.questions];
+    newQuestions[index] = value;
+    setFormState(prev => ({
+      ...prev,
+      questions: newQuestions
+    }));
   };
 
   const addQuestion = () => {
-    setCurrentTemplate(prev => ({
+    setFormState(prev => ({
       ...prev,
       questions: [...prev.questions, '']
     }));
   };
 
   const removeQuestion = (index: number) => {
-    if (currentTemplate.questions.length <= 1) return;
-    const updatedQuestions = currentTemplate.questions.filter((_, i) => i !== index);
-    setCurrentTemplate(prev => ({ ...prev, questions: updatedQuestions }));
+    if (formState.questions.length > 1) {
+      const newQuestions = formState.questions.filter((_, i) => i !== index);
+      setFormState(prev => ({
+        ...prev,
+        questions: newQuestions
+      }));
+    }
   };
 
   const handleSubmit = () => {
-    try {
-      // Basic validation
-      if (!currentTemplate.name || !currentTemplate.role) {
-        toast({
-          title: "Validation Error",
-          description: "Template name and role are required",
-          variant: "destructive"
-        });
-        return;
-      }
+    // Validate form
+    if (!formState.name || !formState.role) {
+      toast({
+        title: 'Validation Error',
+        description: 'Template name and role are required',
+        variant: 'destructive'
+      });
+      return;
+    }
 
+    try {
       // Filter out empty questions
-      const filteredQuestions = currentTemplate.questions.filter(q => q.trim() !== '');
+      const filteredQuestions = formState.questions.filter(q => q.trim() !== '');
+      
       if (filteredQuestions.length === 0) {
         toast({
-          title: "Validation Error",
-          description: "At least one question is required",
-          variant: "destructive"
+          title: 'Validation Error',
+          description: 'At least one interview question is required',
+          variant: 'destructive'
         });
         return;
       }
-
-      // Save template with filtered questions
-      const templateToSave = {
-        ...currentTemplate,
+      
+      const templateData = {
+        id: currentTemplate?.id,
+        name: formState.name,
+        role: formState.role,
+        description: formState.description,
+        rules: formState.rules,
+        job_description: formState.jobDescription,
         questions: filteredQuestions
       };
-
-      const savedTemplate = interviewService.createTemplate(templateToSave);
       
-      // Update the templates list
-      setTemplates(prev => {
-        const existingIndex = prev.findIndex(t => t.id === savedTemplate.id);
-        if (existingIndex >= 0) {
-          const updated = [...prev];
-          updated[existingIndex] = savedTemplate;
-          return updated;
-        }
-        return [...prev, savedTemplate];
-      });
-
-      setIsDialogOpen(false);
-      resetForm();
-
-      toast({
-        title: "Success",
-        description: "Interview template has been saved",
-      });
+      // Save template
+      const savedTemplate = interviewService.createTemplate(templateData);
+      
+      // Update UI
+      if (showEditModal) {
+        setTemplates(prevTemplates => 
+          prevTemplates.map(t => t.id === savedTemplate.id ? savedTemplate : t)
+        );
+        toast({
+          title: 'Template Updated',
+          description: `"${savedTemplate.name}" has been updated successfully`
+        });
+      } else {
+        setTemplates(prevTemplates => [...prevTemplates, savedTemplate]);
+        toast({
+          title: 'Template Created',
+          description: `"${savedTemplate.name}" has been created successfully`
+        });
+      }
+      
+      // Close modal
+      setShowAddModal(false);
+      setShowEditModal(false);
     } catch (error) {
-      console.error("Error saving template:", error);
+      console.error('Error saving template:', error);
       toast({
-        title: "Error",
-        description: "Failed to save the template",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to save the template. Please try again.',
+        variant: 'destructive'
       });
     }
   };
 
-  const editTemplate = (template: any) => {
-    setCurrentTemplate(template);
-    setIsDialogOpen(true);
-  };
-
-  const deleteTemplate = (id: string) => {
-    // In a real app, this would call an API to delete the template
-    setTemplates(prev => prev.filter(t => t.id !== id));
-    toast({
-      title: "Template Deleted",
-      description: "The template has been removed",
-    });
-  };
-
-  const resetForm = () => {
-    setCurrentTemplate({
-      name: '',
-      role: '',
-      description: '',
-      rules: '',
-      questions: ['', '', '']
-    });
+  const handleDelete = () => {
+    if (!currentTemplate) return;
+    
+    try {
+      // Filter out the template
+      const updatedTemplates = templates.filter(t => t.id !== currentTemplate.id);
+      setTemplates(updatedTemplates);
+      
+      // Update local storage
+      localStorage.setItem('interview_templates', JSON.stringify(updatedTemplates));
+      
+      toast({
+        title: 'Template Deleted',
+        description: `"${currentTemplate.name}" has been deleted`
+      });
+      
+      // Close dialog
+      setShowDeleteDialog(false);
+      setCurrentTemplate(null);
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the template',
+        variant: 'destructive'
+      });
+    }
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-medium">Interview Templates</h2>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              onClick={() => {
-                resetForm();
-                setIsDialogOpen(true);
-              }}
-              className="flex items-center gap-2"
-            >
-              <Plus size={16} />
+        <h2 className="text-2xl font-bold">Interview Templates</h2>
+        <Button onClick={() => setShowAddModal(true)}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          New Template
+        </Button>
+      </div>
+      
+      {templates.length === 0 ? (
+        <Card className="border-dashed border-2 bg-muted/50">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="rounded-full bg-primary/10 p-3 mb-4">
+              <Code className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">No Templates Yet</h3>
+            <p className="text-sm text-foreground/70 text-center max-w-md mb-4">
+              Create your first interview template to start conducting AI-powered interviews for your organization.
+            </p>
+            <Button onClick={() => setShowAddModal(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
               Create Template
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {currentTemplate.id ? 'Edit Interview Template' : 'Create Interview Template'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Template Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={currentTemplate.name}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Frontend Developer Interview"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Input
-                    id="role"
-                    name="role"
-                    value={currentTemplate.role}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Senior Frontend Developer"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="description">Role Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={currentTemplate.description}
-                  onChange={handleInputChange}
-                  placeholder="Describe the role requirements and responsibilities"
-                  className="min-h-[80px]"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="rules">Interview Rules & Guidelines</Label>
-                <Textarea
-                  id="rules"
-                  name="rules"
-                  value={currentTemplate.rules}
-                  onChange={handleInputChange}
-                  placeholder="Special instructions or focus areas for the AI interviewer"
-                  className="min-h-[100px]"
-                />
-              </div>
-
-              <div className="grid gap-3">
-                <div className="flex justify-between items-center">
-                  <Label>Seed Questions (Optional)</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addQuestion}
-                    className="h-8"
-                  >
-                    <Plus size={14} className="mr-1" /> Add Question
-                  </Button>
-                </div>
-                
-                {currentTemplate.questions.map((question: string, index: number) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      value={question}
-                      onChange={(e) => handleQuestionChange(index, e.target.value)}
-                      placeholder={`Question ${index + 1}`}
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeQuestion(index)}
-                      disabled={currentTemplate.questions.length <= 1}
-                      className="h-10 px-2"
-                    >
-                      <Trash size={16} className="text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsDialogOpen(false);
-                  resetForm();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleSubmit}>
-                Save Template
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {templates.length === 0 ? (
-        <div className="glass-card text-center py-12">
-          <File size={48} className="mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-medium mb-2">No Templates Yet</h3>
-          <p className="text-muted-foreground mb-6">
-            Create your first interview template to get started
-          </p>
-          <Button
-            onClick={() => {
-              resetForm();
-              setIsDialogOpen(true);
-            }}
-            className="flex items-center gap-2 mx-auto"
-          >
-            <Plus size={16} />
-            Create Template
-          </Button>
-        </div>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {templates.map((template) => (
-            <Card key={template.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex justify-between items-start">
-                  <span>{template.name}</span>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0"
-                      onClick={() => editTemplate(template)}
-                    >
-                      <Edit size={16} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0"
-                      onClick={() => deleteTemplate(template.id)}
-                    >
-                      <Trash size={16} className="text-destructive" />
-                    </Button>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {templates.map(template => (
+            <Card key={template.id} className="overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-sm font-medium">Role:</span>
-                    <span className="text-sm ml-2">{template.role}</span>
+                    <CardTitle>{template.name}</CardTitle>
+                    <CardDescription className="mt-1">
+                      {template.role}
+                    </CardDescription>
                   </div>
-                  
-                  {template.description && (
-                    <div>
-                      <span className="text-sm font-medium">Description:</span>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {template.description.length > 100
-                          ? `${template.description.substring(0, 100)}...`
-                          : template.description}
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <span className="text-sm font-medium">Questions:</span>
-                    <p className="text-sm text-muted-foreground">
-                      {template.questions.length} questions defined
-                    </p>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setCurrentTemplate(template);
+                          setShowEditModal(true);
+                        }}
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const duplicatedTemplate = {
+                            ...template,
+                            id: undefined,
+                            name: `Copy of ${template.name}`
+                          };
+                          setCurrentTemplate(duplicatedTemplate);
+                          setShowEditModal(true);
+                        }}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => {
+                          setCurrentTemplate(template);
+                          setShowDeleteDialog(true);
+                        }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
+              </CardHeader>
+              <CardContent className="pb-3">
+                <p className="text-sm text-muted-foreground line-clamp-3">
+                  {template.description || "No description provided."}
+                </p>
               </CardContent>
+              <CardFooter className="border-t pt-3 flex justify-between">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Users className="mr-1 h-4 w-4" />
+                  {template.questions?.length || 0} questions
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open(`/interview?template_id=${template.id}`, '_blank')}
+                >
+                  Start Interview
+                </Button>
+              </CardFooter>
             </Card>
           ))}
         </div>
       )}
+      
+      {/* Add/Edit Template Modal */}
+      <Dialog 
+        open={showAddModal || showEditModal} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowAddModal(false);
+            setShowEditModal(false);
+            setCurrentTemplate(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{showEditModal ? 'Edit Template' : 'Create Interview Template'}</DialogTitle>
+            <DialogDescription>
+              {showEditModal 
+                ? 'Make changes to your interview template' 
+                : 'Configure a new interview template for your organization'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Template Name</Label>
+                <Input 
+                  id="name" 
+                  value={formState.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  placeholder="Technical Interview"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Input 
+                  id="role" 
+                  value={formState.role}
+                  onChange={(e) => handleInputChange('role', e.target.value)}
+                  placeholder="Software Engineer"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea 
+                id="description"
+                value={formState.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Brief description of this interview template"
+                rows={2}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="job-description">Job Description</Label>
+              <Textarea 
+                id="job-description"
+                value={formState.jobDescription}
+                onChange={(e) => handleInputChange('jobDescription', e.target.value)}
+                placeholder="Detailed job description for candidate evaluation"
+                rows={4}
+              />
+              <p className="text-sm text-muted-foreground">
+                This will be used to evaluate candidate fit after interviews
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="rules">Interview Rules & Instructions</Label>
+              <Textarea 
+                id="rules"
+                value={formState.rules}
+                onChange={(e) => handleInputChange('rules', e.target.value)}
+                placeholder="Guidelines for the AI interviewer to follow"
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label>Interview Questions</Label>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={addQuestion}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Question
+                </Button>
+              </div>
+              
+              {formState.questions.map((question, index) => (
+                <div key={index} className="flex gap-2">
+                  <Textarea 
+                    value={question}
+                    onChange={(e) => handleQuestionChange(index, e.target.value)}
+                    placeholder={`Question ${index + 1}`}
+                    className="flex-1"
+                  />
+                  {formState.questions.length > 1 && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => removeQuestion(index)}
+                      className="flex-shrink-0 self-start"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAddModal(false);
+                setShowEditModal(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit}>
+              {showEditModal ? 'Update Template' : 'Create Template'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Template</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{currentTemplate?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter className="mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDelete}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
