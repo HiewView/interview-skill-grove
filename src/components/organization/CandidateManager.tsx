@@ -161,12 +161,12 @@ const CandidateManager: React.FC = () => {
       // Schedule interviews
       interviewService.scheduleCandidateInterviews(selectedCandidates, dateStr);
       
-      // Update local state
+      // Update local state - Using explicit typing to ensure type compatibility
       const updatedCandidates = candidates.map(candidate => {
         if (selectedCandidates.includes(candidate.id)) {
           return {
             ...candidate,
-            status: 'invited',
+            status: 'invited' as const,
             interview_date: dateStr
           };
         }
