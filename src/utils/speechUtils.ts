@@ -3,6 +3,14 @@
  * Utility for working with speech recognition and synthesis
  */
 
+// Add proper TypeScript declarations for the Web Speech API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 // Define the wrapper for the SpeechRecognition API
 interface SpeechRecognitionWrapper {
   isSupported: () => boolean;
@@ -91,7 +99,7 @@ const startBrowserRecognition = (
   silenceThreshold: number
 ) => {
   // Get SpeechRecognition constructor
-  const SpeechRecognition = (window.SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   
   // Initialize recognition
   const recognizer = new SpeechRecognition();
