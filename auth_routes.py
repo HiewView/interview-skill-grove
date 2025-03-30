@@ -71,6 +71,9 @@ def login():
         
     data = request.get_json()
     
+    if not data:
+        return jsonify({'error': 'Invalid content type or missing request body'}), 400
+    
     if not all(k in data for k in ('email', 'password')):
         return jsonify({'error': 'Missing email or password'}), 400
     

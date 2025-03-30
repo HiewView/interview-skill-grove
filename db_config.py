@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_pymongo import PyMongo
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
+import os
 
 # Initialize extensions
 db = SQLAlchemy()  # For structured data (users, organizations, interview sessions)
@@ -16,8 +17,10 @@ def init_db(app):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///interview_app.db'  # SQLite for development
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Configure MongoDB
-    app.config['MONGO_URI'] = 'mongodb://localhost:27017/interview_reports'
+    # Configure MongoDB - But make it optional
+    mongodb_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/interview_reports')
+    app.config['MONGO_URI'] = mongodb_uri
+    app.config['MONGO_CONNECT'] = False  # Don't connect automatically - we'll handle errors gracefully
     
     # Configure JWT
     app.config['JWT_SECRET_KEY'] = app.config.get('SECRET_KEY', 'dev-key-change-in-production')
@@ -25,9 +28,15 @@ def init_db(app):
     
     # Initialize extensions with app
     db.init_app(app)
-    mongo.init_app(app)
     bcrypt.init_app(app)
     jwt.init_app(app)
+    
+    # Initialize MongoDB but don't fail if unavailable
+    try:
+        mongo.init_app(app)
+        print("MongoDB connected successfully")
+    except Exception as e:
+        print(f"MongoDB not available: {e}. Continuing without MongoDB...")
     
     # Create all tables in SQLite if they don't exist
     with app.app_context():

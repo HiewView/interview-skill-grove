@@ -45,7 +45,10 @@ export const authService = {
       });
       
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({
+          error: `Error ${response.status}: ${response.statusText}`
+        }));
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
@@ -70,7 +73,10 @@ export const authService = {
       });
       
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({
+          error: `Error ${response.status}: ${response.statusText}`
+        }));
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();

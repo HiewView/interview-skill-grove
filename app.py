@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 import soundfile as sf
 import numpy as np
@@ -174,28 +175,94 @@ def transcribe():
         
         return jsonify({"error": f"Transcription failed: {str(e)}"}), 500
 
-@app.route("/generate_report", methods=["GET", "OPTIONS"])
-def generate_report():
-    """Generates interview summary report."""
+# Add direct endpoint for ending interview (matches the client endpoint)
+@app.route("/interview/end_interview", methods=["POST", "OPTIONS"])
+def end_interview():
+    """End interview and generate report."""
+    if request.method == "OPTIONS":
+        # Handle OPTIONS request for CORS preflight
+        return "", 204
+        
+    data = request.get_json()
+    if not data or not data.get("session_id"):
+        return jsonify({"error": "Missing session_id"}), 400
+        
+    session_id = data.get("session_id")
+    session = interview_sessions.get(session_id)
+    
+    if not session:
+        return jsonify({"error": "Invalid session"}), 404
+        
+    # Generate a simple report without using MongoDB
+    qa_pairs = []
+    memory = session.get("memory", [])
+    
+    for i in range(0, len(memory), 2):
+        if i+1 < len(memory):
+            qa_pairs.append({
+                "question": memory[i][1] if memory[i][0] == "Interviewer" else memory[i+1][1],
+                "answer": memory[i+1][1] if memory[i+1][0] == "Candidate" else memory[i][1],
+                "assessment": "Good answer with clear explanation."
+            })
+    
+    # Create a simple report without MongoDB
+    report_id = f"report-{session_id}"
+    
+    # Generate metrics (simplified without LLM)
+    technical_metrics = [
+        {"name": "Domain Knowledge", "value": 80, "color": "#4CAF50"},
+        {"name": "Problem Solving", "value": 85, "color": "#2196F3"},
+        {"name": "Technical Skills", "value": 90, "color": "#9C27B0"}
+    ]
+    
+    communication_metrics = [
+        {"name": "Clarity", "value": 85, "color": "#FF9800"},
+        {"name": "Confidence", "value": 80, "color": "#E91E63"},
+        {"name": "Articulation", "value": 75, "color": "#3F51B5"}
+    ]
+    
+    personality_metrics = [
+        {"name": "Cultural Fit", "value": 90, "color": "#009688"},
+        {"name": "Adaptability", "value": 85, "color": "#607D8B"},
+        {"name": "Leadership", "value": 80, "color": "#795548"}
+    ]
+    
+    # Calculate overall score
+    metrics_list = technical_metrics + communication_metrics + personality_metrics
+    overall_score = sum(metric["value"] for metric in metrics_list) / len(metrics_list)
+    
+    return jsonify({
+        "report_id": report_id,
+        "overall_score": overall_score,
+        "message": "Interview completed and report generated"
+    }), 201
+
+@app.route("/interview/reports", methods=["GET", "OPTIONS"])
+def get_all_reports():
+    """Gets all reports for the current user."""
     if request.method == "OPTIONS":
         # Handle OPTIONS request for CORS preflight
         return "", 204
     
-    session_id = request.args.get("session_id")
-    session = interview_sessions.get(session_id, {})
+    # In a real app, you would filter by authenticated user
+    reports = []
     
-    if not session:
-        return jsonify({"error": "Invalid session."}), 400
+    for session_id, session in interview_sessions.items():
+        reports.append({
+            "_id": f"report-{session_id}",
+            "session_id": session_id,
+            "user_id": "user123",  # In a real app, get from auth
+            "date": time.strftime("%Y-%m-%d"),
+            "overall_score": 85,  # In a real app, calculate this
+            "role": session.get("role", "Not specified"),
+            "technical_metrics": [
+                {"name": "Domain Knowledge", "value": 80, "color": "#4CAF50"},
+                {"name": "Problem Solving", "value": 85, "color": "#2196F3"},
+                {"name": "Technical Skills", "value": 90, "color": "#9C27B0"}
+            ]
+        })
     
-    report = {
-        "candidate_name": session.get("name"),
-        "role": session.get("role"),
-        "experience": session.get("experience"),
-        "resume_text": session.get("resume_text"),
-        "interview_transcript": session.get("memory", [])
-    }
-    
-    return jsonify(report)
+    return jsonify({"reports": reports})
 
 @app.route("/interview/reports/<report_id>", methods=["GET", "OPTIONS"])
 def get_report_by_id(report_id):
@@ -204,7 +271,9 @@ def get_report_by_id(report_id):
         # Handle OPTIONS request for CORS preflight
         return "", 204
     
-    session = interview_sessions.get(report_id, {})
+    # Extract session_id from report_id
+    session_id = report_id.replace("report-", "") if report_id.startswith("report-") else report_id
+    session = interview_sessions.get(session_id, {})
     
     if not session:
         return jsonify({"error": "Report not found"}), 404
@@ -212,7 +281,7 @@ def get_report_by_id(report_id):
     # Create a report with metrics
     report = {
         "_id": report_id,
-        "session_id": report_id,
+        "session_id": session_id,
         "user_id": "user123",  # In a real app, get from auth
         "date": time.strftime("%Y-%m-%d"),
         "overall_score": 85,  # In a real app, calculate this
@@ -236,42 +305,16 @@ def get_report_by_id(report_id):
     }
     
     # Add Q&A details
-    for question, answer in session.get("memory", []):
-        if question == "Candidate" or question == "Interviewer":
+    memory = session.get("memory", [])
+    for i in range(0, len(memory), 2):
+        if i+1 < len(memory):
             report["qa_details"].append({
-                "question": answer if question == "Interviewer" else "",
-                "answer": answer if question == "Candidate" else "",
-                "assessment": "Good answer with clear explanation." if question == "Candidate" else ""
+                "question": memory[i][1] if memory[i][0] == "Interviewer" else memory[i+1][1],
+                "answer": memory[i+1][1] if memory[i+1][0] == "Candidate" else memory[i][1],
+                "assessment": "Good answer with clear explanation."
             })
     
     return jsonify({"report": report})
-
-@app.route("/interview/reports", methods=["GET", "OPTIONS"])
-def get_all_reports():
-    """Gets all reports for the current user."""
-    if request.method == "OPTIONS":
-        # Handle OPTIONS request for CORS preflight
-        return "", 204
-    
-    # In a real app, you would filter by authenticated user
-    reports = []
-    
-    for session_id, session in interview_sessions.items():
-        reports.append({
-            "_id": session_id,
-            "session_id": session_id,
-            "user_id": "user123",  # In a real app, get from auth
-            "date": time.strftime("%Y-%m-%d"),
-            "overall_score": 85,  # In a real app, calculate this
-            "role": session.get("role", "Not specified"),
-            "technical_metrics": [
-                {"name": "Domain Knowledge", "value": 80, "color": "#4CAF50"},
-                {"name": "Problem Solving", "value": 85, "color": "#2196F3"},
-                {"name": "Technical Skills", "value": 90, "color": "#9C27B0"}
-            ]
-        })
-    
-    return jsonify({"reports": reports})
 
 if __name__ == "__main__":
     app.run(debug=True)
