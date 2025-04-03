@@ -40,8 +40,10 @@ export const authService = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify({ email, password }),
+        credentials: "include"
       });
       
       if (!response.ok) {
@@ -52,6 +54,13 @@ export const authService = {
       }
       
       const data = await response.json();
+      
+      // Store token and user info in localStorage
+      if (data.token) {
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user_info', JSON.stringify(data.user));
+      }
+      
       return data;
     } catch (error) {
       console.error("Sign in error:", error);
@@ -68,8 +77,10 @@ export const authService = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify(params),
+        credentials: "include"
       });
       
       if (!response.ok) {
@@ -80,6 +91,13 @@ export const authService = {
       }
       
       const data = await response.json();
+      
+      // Store token and user info in localStorage
+      if (data.token) {
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user_info', JSON.stringify(data.user));
+      }
+      
       return data;
     } catch (error) {
       console.error("Registration error:", error);

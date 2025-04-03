@@ -84,6 +84,7 @@ export const interviewService = {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
         "Content-Type": "application/json",
+        "Accept": "application/json"
       };
       
       if (token) {
@@ -94,6 +95,7 @@ export const interviewService = {
         method: "POST",
         headers,
         body: JSON.stringify(params),
+        credentials: "include"
       });
       
       if (!response.ok) {
@@ -115,6 +117,7 @@ export const interviewService = {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
         "Content-Type": "application/json",
+        "Accept": "application/json"
       };
       
       if (token) {
@@ -125,6 +128,7 @@ export const interviewService = {
         method: "POST",
         headers,
         body: JSON.stringify(params),
+        credentials: "include"
       });
       
       if (!response.ok) {
@@ -146,20 +150,25 @@ export const interviewService = {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
         "Content-Type": "application/json",
+        "Accept": "application/json"
       };
       
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      // For ending interview, we won't require authorization
+      // because the user might not be logged in yet for candidate interviews
       
       const response = await fetch(`${API_URL}/interview/end_interview`, {
         method: "POST",
         headers,
         body: JSON.stringify({ session_id: sessionId }),
+        credentials: "include"
       });
       
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({
+          error: `Error ${response.status}: ${response.statusText}`
+        }));
+        console.error("End interview error data:", errorData);
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
       }
       
       return await response.json();
@@ -259,7 +268,8 @@ export const interviewService = {
       
       const response = await fetch(`${API_URL}/transcribe`, {
         method: "POST",
-        body: formData
+        body: formData,
+        credentials: "include"
       });
       
       if (!response.ok) {
@@ -271,36 +281,6 @@ export const interviewService = {
       return await response.json();
     } catch (error) {
       console.error("Error transcribing audio:", error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Compare candidates for a specific job description
-   */
-  async compareCandidates(templateId: string): Promise<any> {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(`${API_URL}/interview/compare-candidates/${templateId}`, {
-        method: "GET",
-        headers
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error("Error comparing candidates:", error);
       throw error;
     }
   }

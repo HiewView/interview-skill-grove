@@ -21,7 +21,9 @@ load_dotenv()
 
 app = Flask(__name__)
 # Configure CORS to allow all origins and methods, including OPTIONS
-CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})
+CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], 
+                    "allow_headers": ["Content-Type", "Authorization", "Accept"]}},
+     supports_credentials=True)
 
 # Set secret key for sessions and JWT
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -37,14 +39,15 @@ app.register_blueprint(interview_bp, url_prefix='/interview')
 whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
 
 # Load Groq LLM
-llm = ChatGroq(model="llama3-70b-8192", temperature=0.2, max_retries=2)
+api_key = os.getenv('GROQ_API_KEY', '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')
+llm = ChatGroq(api_key=api_key, model="llama3-70b-8192", temperature=0.2, max_retries=2)
 
 # EdgeTTS voice selection
 VOICE = "en-US-JennyNeural"
 
 interview_sessions = {}
 
-# Helper functions like extract_text_from_pdf, generate_next_question, text_to_speech
+# Helper functions
 def extract_text_from_pdf(pdf_path):
     """Extracts text from a PDF file."""
     text = ""

@@ -41,16 +41,20 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
             className={`p-3 rounded-lg ${
               text.startsWith('AI:') 
                 ? 'bg-primary/10 text-foreground mr-12' 
-                : 'bg-secondary text-foreground ml-12'
+                : 'bg-secondary text-foreground ml-12 flex'
             } animate-in slide-in-from-bottom-2 duration-300`}
           >
-            <p>{text}</p>
+            {text.startsWith('AI:') ? (
+              <p>{text}</p>
+            ) : (
+              <p className="w-full">{text}</p>
+            )}
           </div>
         ))}
         
         {isListening && interimTranscript && (
           <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12 animate-pulse">
-            <p>You: {interimTranscript}</p>
+            <p className="w-full">You: {interimTranscript}</p>
           </div>
         )}
         

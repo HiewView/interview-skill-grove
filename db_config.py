@@ -24,7 +24,10 @@ def init_db(app):
     
     # Configure JWT
     app.config['JWT_SECRET_KEY'] = app.config.get('SECRET_KEY', 'dev-key-change-in-production')
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 3600  # 1 hour
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 24 * 3600  # 24 hours
+    app.config['JWT_TOKEN_LOCATION'] = ['headers']
+    app.config['JWT_HEADER_NAME'] = 'Authorization'
+    app.config['JWT_HEADER_TYPE'] = 'Bearer'
     
     # Initialize extensions with app
     db.init_app(app)

@@ -2,7 +2,8 @@
 from flask import Blueprint, request, jsonify, current_app
 from models import User, Organization
 from db_config import db, bcrypt, jwt
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from datetime import timedelta
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -50,11 +51,13 @@ def register():
     db.session.commit()
     
     # Generate token
-    token = new_user.generate_token()
+    # Create access token with 1 day expiry
+    expires = timedelta(days=1)
+    access_token = create_access_token(identity=str(new_user.id), expires_delta=expires)
     
     return jsonify({
         'message': 'User registered successfully',
-        'token': token,
+        'token': access_token,
         'user': {
             'id': new_user.id,
             'email': new_user.email,
@@ -82,16 +85,29 @@ def login():
     
     # Check if user exists and password is correct
     if user and bcrypt.check_password_hash(user.password_hash, data['password']):
-        token = user.generate_token()
+        # Create access token with 1 day expiry
+        expires = timedelta(days=1)
+        access_token = create_access_token(identity=str(user.id), expires_delta=expires)
+        
+        # Get organization details if user belongs to one
+        org_data = None
+        if user.organization_id:
+            org = Organization.query.get(user.organization_id)
+            if org:
+                org_data = {
+                    'id': org.id,
+                    'name': org.name
+                }
         
         return jsonify({
             'message': 'Login successful',
-            'token': token,
+            'token': access_token,
             'user': {
                 'id': user.id,
                 'email': user.email,
                 'name': user.name,
-                'user_type': user.user_type
+                'user_type': user.user_type,
+                'organization': org_data
             }
         }), 200
     
