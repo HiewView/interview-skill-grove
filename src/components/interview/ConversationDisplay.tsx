@@ -21,7 +21,7 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
     if (conversationRef.current) {
       conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
     }
-  }, [transcription, interimTranscript]);
+  }, [transcription]);
   
   return (
     <div className="flex-1 glass-card overflow-hidden flex flex-col">
@@ -41,16 +41,20 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
             className={`p-3 rounded-lg ${
               text.startsWith('AI:') 
                 ? 'bg-primary/10 text-foreground mr-12' 
-                : 'bg-secondary text-foreground ml-12'
+                : 'bg-secondary text-foreground ml-12 flex'
             } animate-in slide-in-from-bottom-2 duration-300`}
           >
-            <p className="break-words">{text}</p>
+            {text.startsWith('AI:') ? (
+              <p>{text}</p>
+            ) : (
+              <p className="w-full">{text}</p>
+            )}
           </div>
         ))}
         
         {isListening && interimTranscript && (
           <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12 animate-pulse">
-            <p className="break-words">You: {interimTranscript}</p>
+            <p className="w-full">You: {interimTranscript}</p>
           </div>
         )}
         
