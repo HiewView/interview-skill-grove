@@ -35,22 +35,33 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
         ref={conversationRef}
         className="flex-1 overflow-y-auto rounded-lg bg-muted/30 p-4 space-y-3"
       >
-        {transcription.map((text, index) => (
-          <div 
-            key={index} 
-            className={`p-3 rounded-lg ${
-              text.startsWith('AI:') 
-                ? 'bg-primary/10 text-foreground mr-12' 
-                : 'bg-secondary text-foreground ml-12'
-            } animate-in slide-in-from-bottom-2 duration-300`}
-          >
-            <p className="break-words">{text}</p>
-          </div>
-        ))}
+        {transcription.map((text, index) => {
+          const isAI = text.startsWith('AI:');
+          const messageText = isAI ? text.substring(3).trim() : text.substring(4).trim();
+          
+          return (
+            <div 
+              key={index} 
+              className={`p-3 rounded-lg ${
+                isAI 
+                  ? 'bg-primary/10 text-foreground mr-12' 
+                  : 'bg-secondary text-foreground ml-12'
+              } animate-in slide-in-from-bottom-2 duration-300`}
+            >
+              <p className="break-words">
+                <span className="font-semibold">{isAI ? 'AI: ' : 'You: '}</span>
+                {messageText}
+              </p>
+            </div>
+          );
+        })}
         
         {isListening && interimTranscript && (
           <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12 animate-pulse">
-            <p className="break-words">You: {interimTranscript}</p>
+            <p className="break-words">
+              <span className="font-semibold">You: </span>
+              {interimTranscript}
+            </p>
           </div>
         )}
         

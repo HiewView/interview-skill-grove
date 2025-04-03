@@ -80,7 +80,7 @@ export const interviewService = {
    */
   async startInterview(params: StartInterviewParams): Promise<InterviewResponse> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const headers: HeadersInit = {
         "Content-Type": "application/json",
         "Accept": "application/json"
@@ -113,7 +113,7 @@ export const interviewService = {
    */
   async submitAnswer(params: SubmitAnswerParams): Promise<InterviewResponse> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const headers: HeadersInit = {
         "Content-Type": "application/json",
         "Accept": "application/json"
@@ -146,12 +146,19 @@ export const interviewService = {
    */
   async endInterview(sessionId: string): Promise<{ report_id: string }> {
     try {
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`${API_URL}/interview/end_interview`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
+        headers,
         body: JSON.stringify({ session_id: sessionId }),
         credentials: "include"
       });
@@ -257,7 +264,7 @@ export const interviewService = {
    */
   async compareCandidates(templateId: string): Promise<any> {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const headers: HeadersInit = {
         "Content-Type": "application/json",
         "Accept": "application/json"
@@ -344,11 +351,19 @@ export const interviewService = {
    */
   async transcribeAudio(audioBlob: Blob): Promise<{ transcript: string }> {
     try {
+      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('audio', audioBlob);
       
+      const headers: HeadersInit = {};
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`${API_URL}/transcribe`, {
         method: "POST",
+        headers,
         body: formData,
         credentials: "include"
       });
