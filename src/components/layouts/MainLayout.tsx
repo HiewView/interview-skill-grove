@@ -11,7 +11,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <NavBar />
-      <main className="flex-1 page-transition">
+      <main className="flex-1 page-transition pt-16">
         {children || <Outlet />}
       </main>
     </div>

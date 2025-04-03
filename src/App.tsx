@@ -12,25 +12,22 @@ import Register from './pages/Register';
 import CandidateComparison from './pages/CandidateComparison';
 import NotFound from './pages/NotFound';
 import './App.css';
-import { AuthProvider } from './hooks/useAuth';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<MainLayout><Index /></MainLayout>} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<MainLayout><Dashboard /></MainLayout>} />
-          <Route path="/organization" element={<MainLayout><Organization /></MainLayout>} />
-          <Route path="/interview" element={<MainLayout><Interview /></MainLayout>} />
-          <Route path="/report/:id" element={<MainLayout><Report /></MainLayout>} />
-          <Route path="/compare/:templateId" element={<MainLayout><CandidateComparison /></MainLayout>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <Router>
+      <Routes>
+        <Route path="/" element={<MainLayout><Index /></MainLayout>} />
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<MainLayout><Dashboard /></MainLayout>} />
+        <Route path="/organization" element={<MainLayout><Organization /></MainLayout>} />
+        <Route path="/interview" element={<MainLayout><Interview /></MainLayout>} />
+        <Route path="/report/:id" element={<MainLayout><Report /></MainLayout>} />
+        <Route path="/compare/:templateId" element={<MainLayout><CandidateComparison /></MainLayout>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Router>
   );
 }
 
