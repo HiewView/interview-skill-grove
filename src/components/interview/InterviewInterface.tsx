@@ -2,11 +2,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, AlertCircle, Send } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
-import VideoFeed from './ui/VideoFeed';
-import { Textarea } from './ui/textarea';
-import { interviewService } from '../services/interviewService';
-import { speechUtils } from '../utils/speechUtils';
-import { Switch } from './ui/switch';
+import VideoFeed from '../ui/VideoFeed';
+import { Textarea } from '../ui/textarea';
+import { interviewService } from '../../services/interviewService';
+import { speechUtils } from '../../utils/speechUtils';
+import { Switch } from '../ui/switch';
+import { useNavigate } from 'react-router-dom';
+import ConversationDisplay from './ConversationDisplay';
+import { 
+  AlertDialog, 
+  AlertDialogContent, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction
+} from '../ui/alert-dialog';
 
 interface InterviewInterfaceProps {
   sessionId: string;
@@ -24,11 +36,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
-  const [useWhisper, setUseWhisper] = useState(true); // Default to using Whisper
-  const conversationRef = useRef<HTMLDivElement>(null);
+  const [endInterviewOpen, setEndInterviewOpen] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const recognitionRef = useRef<{ stop: () => void; abort: () => void } | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const silenceTimerRef = useRef<number | null>(null);
+  const navigate = useNavigate();
   
   // Initialize audio context
   useEffect(() => {
@@ -38,9 +53,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     return () => {
       // Clean up text-to-speech on unmount
       speechUtils.cancel();
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
+      stopRecording();
     };
   }, []);
   
@@ -49,63 +62,116 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     streamRef.current = stream;
   };
 
-  // Start speech recognition
-  const startListening = () => {
-    if (!useWhisper && !speechUtils.recognition.isSupported()) {
+  // Start Whisper-based recording
+  const startRecording = () => {
+    if (!streamRef.current) {
       toast({
-        title: "Speech Recognition Not Supported",
-        description: "Your browser doesn't support speech recognition. Try using Whisper instead.",
+        title: "Microphone Not Available",
+        description: "Please enable your microphone to continue.",
         variant: "destructive"
       });
-      setUseWhisper(true);
       return;
     }
 
-    if (recognitionRef.current) {
-      recognitionRef.current.abort();
-    }
+    try {
+      const mediaRecorder = new MediaRecorder(streamRef.current, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
 
-    // Only start if not muted
-    if (!isMuted) {
-      recognitionRef.current = speechUtils.recognition.start(
-        // On result
-        (transcript, isFinal) => {
-          if (isFinal) {
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        if (audioChunksRef.current.length === 0 || !isListening) return;
+
+        setIsTranscribing(true);
+        
+        try {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          
+          // Send to server for transcription
+          const result = await interviewService.transcribeAudio(audioBlob);
+          
+          if (result.transcript && result.transcript.trim() !== '') {
+            // Update the current answer with the transcription
             setCurrentAnswer(prev => {
-              const newAnswer = prev ? `${prev} ${transcript}` : transcript;
+              const newAnswer = prev ? `${prev} ${result.transcript}` : result.transcript;
               return newAnswer.trim();
             });
-            setInterimTranscript('');
-          } else {
-            setInterimTranscript(transcript);
+            setInterimTranscript(result.transcript);
           }
-        },
-        // On silence (user stopped speaking)
-        () => {
-          if (currentAnswer.trim() || interimTranscript.trim()) {
-            const finalAnswer = currentAnswer || interimTranscript;
-            setCurrentAnswer(finalAnswer.trim());
-            handleSubmitAnswer(finalAnswer.trim());
-            setInterimTranscript('');
+          
+          // Continue recording if still listening
+          if (isListening) {
+            audioChunksRef.current = [];
+            mediaRecorderRef.current?.start(3000);
+            
+            // Reset silence timer
+            if (silenceTimerRef.current !== null) {
+              window.clearTimeout(silenceTimerRef.current);
+            }
+            
+            // Start new silence timer
+            silenceTimerRef.current = window.setTimeout(() => {
+              if (currentAnswer.trim() || interimTranscript.trim()) {
+                const finalAnswer = currentAnswer || interimTranscript;
+                setCurrentAnswer(finalAnswer.trim());
+                handleSubmitAnswer(finalAnswer.trim());
+                setInterimTranscript('');
+              }
+            }, 3000); // 3 seconds of silence before submitting
           }
-        },
-        3000, // 3 seconds of silence threshold
-        useWhisper // Use Whisper if enabled
-      );
+        } catch (error) {
+          console.error("Error transcribing:", error);
+          toast({
+            title: "Transcription Error",
+            description: "Failed to transcribe audio. Please try again.",
+            variant: "destructive"
+          });
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      // Start recording
+      mediaRecorder.start(3000);  // Record in 3-second chunks
       setIsListening(true);
+      
+      // Set silence timer
+      silenceTimerRef.current = window.setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+      }, 3000);
+      
       toast({
         title: "Listening",
-        description: `Speak your answer. Using ${useWhisper ? "Whisper" : "browser"} speech recognition.`,
+        description: "Speak your answer. Using Whisper speech recognition.",
+      });
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      toast({
+        title: "Recording Error",
+        description: "Could not start recording. Please check your microphone permissions.",
+        variant: "destructive"
       });
     }
   };
 
-  // Stop speech recognition
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+  // Stop recording
+  const stopRecording = () => {
+    if (silenceTimerRef.current !== null) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    
     setIsListening(false);
   };
   
@@ -127,7 +193,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           experience: formData.experience || "3",
           resume_text: formData.resumeText || "",
           organization_id: templateInfo?.organization_id,
-          template_id: templateInfo?.id
+          template_id: templateInfo?.id,
+          use_whisper: true
         });
         
         if (response.first_question) {
@@ -140,12 +207,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             // Start listening after AI finishes speaking
             speech.finished.then(() => {
               if (!isMuted) {
-                startListening();
+                startRecording();
               }
             });
           } else if (!isMuted) {
             // Start listening immediately if TTS is disabled
-            startListening();
+            startRecording();
           }
         }
       } catch (error) {
@@ -164,7 +231,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
 
     // Clean up when component unmounts
     return () => {
-      stopListening();
+      stopRecording();
     };
   }, [sessionId, templateInfo]);
   
@@ -181,13 +248,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     
     return () => clearInterval(interval);
   }, [timer]);
-  
-  // Scroll to bottom of conversation
-  useEffect(() => {
-    if (conversationRef.current) {
-      conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
-    }
-  }, [transcription]);
   
   // Text-to-speech functionality
   const speakText = async (text: string) => {
@@ -212,7 +272,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     
     try {
       setIsLoading(true);
-      stopListening(); // Stop listening while processing
+      stopRecording(); // Stop listening while processing
       
       // Add user's answer to transcription
       const userAnswer = `You: ${finalAnswer}`;
@@ -238,12 +298,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           // Start listening after AI finishes speaking
           speech.finished.then(() => {
             if (!isMuted) {
-              startListening();
+              startRecording();
             }
           });
         } else if (!isMuted) {
           // Start listening immediately if TTS is disabled
-          startListening();
+          startRecording();
         }
       }
       
@@ -256,52 +316,64 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
       });
       // Restart listening
       if (!isMuted) {
-        startListening();
+        startRecording();
       }
     } finally {
       setIsLoading(false);
     }
   };
   
-  const handleEndInterview = () => {
+  const handleEndInterview = async () => {
     // Cancel any ongoing speech
     speechUtils.cancel();
-    stopListening();
+    stopRecording();
     
-    // In a real app, this would save the interview results
-    toast({
-      title: "Interview Completed",
-      description: "Your interview has been completed and recorded",
-    });
-    
-    // Redirect to a thank you or results page
-    setTimeout(() => {
-      window.location.href = '/';
-    }, 2000);
+    try {
+      setIsLoading(true);
+      
+      // End interview on server
+      const result = await interviewService.endInterview(sessionId);
+      
+      toast({
+        title: "Interview Completed",
+        description: "Your interview has been completed and recorded",
+      });
+      
+      // Navigate to report page or dashboard
+      if (result.report_id) {
+        setTimeout(() => {
+          navigate(`/report/${result.report_id}`);
+        }, 1000);
+      } else {
+        navigate('/');
+      }
+      
+    } catch (error) {
+      console.error("Error ending interview:", error);
+      toast({
+        title: "Error",
+        description: "Failed to end the interview properly. Returning to home page.",
+        variant: "destructive"
+      });
+      // Even if there's an error, navigate away from the interview
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
+    } finally {
+      setIsLoading(false);
+      setEndInterviewOpen(false);
+    }
   };
   
   // Toggle microphone
   const toggleMicrophone = () => {
     if (isMuted) {
       setIsMuted(false);
-      startListening();
+      startRecording();
     } else {
       setIsMuted(true);
-      stopListening();
+      stopRecording();
     }
-  };
-  
-  // Toggle between Whisper and browser recognition
-  const toggleWhisper = () => {
-    stopListening();
-    setUseWhisper(!useWhisper);
-    
-    // Restart listening with new recognition type
-    setTimeout(() => {
-      if (!isMuted) {
-        startListening();
-      }
-    }, 300);
   };
   
   // Format time as MM:SS
@@ -355,14 +427,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
                     onCheckedChange={setTtsEnabled} 
                   />
                 </div>
-                
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-sm">Whisper STT</span>
-                  <Switch 
-                    checked={useWhisper} 
-                    onCheckedChange={toggleWhisper} 
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -370,43 +434,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         
         {/* Transcription and controls */}
         <div className="flex flex-col space-y-6">
-          <div className="flex-1 glass-card overflow-hidden flex flex-col">
-            <h3 className="text-lg font-medium mb-4">Current Question</h3>
-            <div className="bg-muted/50 rounded-lg p-4 mb-4">
-              <p className="text-lg">{currentQuestion || "Loading..."}</p>
-            </div>
-            
-            <h3 className="text-lg font-medium mb-2">Conversation</h3>
-            <div 
-              ref={conversationRef}
-              className="flex-1 overflow-y-auto rounded-lg bg-muted/30 p-4 space-y-3"
-            >
-              {transcription.map((text, index) => (
-                <div 
-                  key={index} 
-                  className={`p-3 rounded-lg ${
-                    text.startsWith('AI:') 
-                      ? 'bg-primary/10 text-foreground mr-12' 
-                      : 'bg-secondary text-foreground ml-12'
-                  } animate-in slide-in-from-bottom-2 duration-300`}
-                >
-                  <p>{text}</p>
-                </div>
-              ))}
-              
-              {isListening && interimTranscript && (
-                <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12 animate-pulse">
-                  <p>You: {interimTranscript}</p>
-                </div>
-              )}
-              
-              {transcription.length === 0 && !isListening && (
-                <div className="text-center p-6 text-muted-foreground">
-                  <p>Your conversation will appear here</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <ConversationDisplay 
+            transcription={transcription}
+            interimTranscript={interimTranscript}
+            isListening={isListening}
+            currentQuestion={currentQuestion}
+          />
           
           {/* Input area */}
           <div className="flex flex-col space-y-4">
@@ -449,7 +482,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               
               <button 
                 className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors"
-                onClick={handleEndInterview}
+                onClick={() => setEndInterviewOpen(true)}
+                disabled={isLoading}
               >
                 End Interview
               </button>
@@ -461,6 +495,28 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           </div>
         </div>
       </div>
+      
+      {/* End Interview Confirmation Dialog */}
+      <AlertDialog open={endInterviewOpen} onOpenChange={setEndInterviewOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Interview</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to end this interview? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleEndInterview} 
+              disabled={isLoading}
+              className={isLoading ? "opacity-50 cursor-not-allowed" : ""}
+            >
+              {isLoading ? "Ending..." : "Yes, end interview"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

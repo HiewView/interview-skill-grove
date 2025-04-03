@@ -1,43 +1,193 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import ReportCard from '../components/ReportCard';
-import { Download, Share } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Download, Share, ChevronLeft } from 'lucide-react';
+import { reportService, Report as ReportType } from '../services/reportService';
+import { toast } from '../hooks/use-toast';
 
 const Report: React.FC = () => {
-  // Mock report data
-  const technicalMetrics = [
-    { name: 'Technical Knowledge', value: 85, color: '#3b82f6' },
-    { name: 'Problem Solving', value: 78, color: '#3b82f6' },
-    { name: 'Code Quality', value: 92, color: '#3b82f6' },
-  ];
+  const { id: reportId } = useParams<{ id: string }>();
+  const [report, setReport] = useState<ReportType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
-  const communicationMetrics = [
-    { name: 'Clarity of Expression', value: 88, color: '#10b981' },
-    { name: 'Articulation', value: 92, color: '#10b981' },
-    { name: 'Active Listening', value: 75, color: '#10b981' },
-  ];
+  useEffect(() => {
+    const fetchReport = async () => {
+      if (!reportId) {
+        toast({
+          title: "Error",
+          description: "No report ID provided",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
 
-  const personalityMetrics = [
-    { name: 'Confidence', value: 82, color: '#8b5cf6' },
-    { name: 'Adaptability', value: 90, color: '#8b5cf6' },
-    { name: 'Cultural Fit', value: 85, color: '#8b5cf6' },
-  ];
+      try {
+        setLoading(true);
+        
+        const token = localStorage.getItem('auth_token');
+        if (!token && process.env.NODE_ENV === 'development' && !reportId.includes('mock')) {
+          setGenerating(true);
+          toast({
+            title: "Generating Report",
+            description: "Please wait while we analyze the interview...",
+          });
+          
+          try {
+            const result = await reportService.generateReport(reportId);
+            setReport(result.report);
+            setGenerating(false);
+          } catch (error) {
+            console.error("Failed to generate report:", error);
+            setTimeout(() => {
+              setReport({
+                _id: reportId,
+                session_id: reportId,
+                user_id: 'u1',
+                date: new Date().toISOString(),
+                role: 'Software Engineer',
+                overall_score: 85,
+                technical_metrics: [
+                  { name: 'Technical Knowledge', value: 85, color: '#3b82f6' },
+                  { name: 'Problem Solving', value: 78, color: '#3b82f6' },
+                  { name: 'Code Quality', value: 92, color: '#3b82f6' },
+                ],
+                communication_metrics: [
+                  { name: 'Clarity of Expression', value: 88, color: '#10b981' },
+                  { name: 'Articulation', value: 92, color: '#10b981' },
+                  { name: 'Active Listening', value: 75, color: '#10b981' },
+                ],
+                personality_metrics: [
+                  { name: 'Confidence', value: 82, color: '#8b5cf6' },
+                  { name: 'Adaptability', value: 90, color: '#8b5cf6' },
+                  { name: 'Cultural Fit', value: 85, color: '#8b5cf6' },
+                ],
+                qa_details: [
+                  {
+                    question: "Tell me about yourself",
+                    answer: "I'm a software engineer with 5 years of experience...",
+                    assessment: "Clear and concise introduction"
+                  }
+                ]
+              });
+              setGenerating(false);
+              setLoading(false);
+            }, 1500);
+          }
+          return;
+        } else if (!token) {
+          setTimeout(() => {
+            setReport({
+              _id: reportId,
+              session_id: 's1',
+              user_id: 'u1',
+              date: '2023-06-15',
+              role: 'Software Engineer',
+              overall_score: 85,
+              technical_metrics: [
+                { name: 'Technical Knowledge', value: 85, color: '#3b82f6' },
+                { name: 'Problem Solving', value: 78, color: '#3b82f6' },
+                { name: 'Code Quality', value: 92, color: '#3b82f6' },
+              ],
+              communication_metrics: [
+                { name: 'Clarity of Expression', value: 88, color: '#10b981' },
+                { name: 'Articulation', value: 92, color: '#10b981' },
+                { name: 'Active Listening', value: 75, color: '#10b981' },
+              ],
+              personality_metrics: [
+                { name: 'Confidence', value: 82, color: '#8b5cf6' },
+                { name: 'Adaptability', value: 90, color: '#8b5cf6' },
+                { name: 'Cultural Fit', value: 85, color: '#8b5cf6' },
+              ]
+            });
+            setLoading(false);
+          }, 500);
+          return;
+        }
+        
+        const fetchedReport = await reportService.getReportById(reportId);
+        setReport(fetchedReport);
+      } catch (error) {
+        console.error(`Failed to fetch report ${reportId}:`, error);
+        toast({
+          title: "Error",
+          description: "Failed to load the interview report. Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Calculate overall score
-  const calculateOverallScore = () => {
-    const allMetrics = [...technicalMetrics, ...communicationMetrics, ...personalityMetrics];
-    return Math.round(allMetrics.reduce((sum, metric) => sum + metric.value, 0) / allMetrics.length);
+    fetchReport();
+  }, [reportId]);
+
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
   };
+
+  if (loading || generating) {
+    return (
+      <div className="page-transition pt-24 pb-16">
+        <div className="page-container">
+          <div className="glass-card text-center p-12">
+            <p className="text-lg">{generating ? "Generating comprehensive report..." : "Loading report..."}</p>
+            {generating && (
+              <div className="mt-4">
+                <div className="animate-pulse flex space-x-4">
+                  <div className="flex-1 space-y-6 py-1">
+                    <div className="h-2 bg-primary/20 rounded"></div>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="h-2 bg-primary/20 rounded col-span-2"></div>
+                        <div className="h-2 bg-primary/20 rounded col-span-1"></div>
+                      </div>
+                      <div className="h-2 bg-primary/20 rounded"></div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm mt-4 text-foreground/70">
+                  Our AI is analyzing your interview responses and creating a detailed assessment...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div className="page-transition pt-24 pb-16">
+        <div className="page-container">
+          <div className="glass-card text-center p-12">
+            <h2 className="text-2xl font-medium mb-4">Report Not Found</h2>
+            <p className="mb-6">The requested report could not be found.</p>
+            <Link to="/dashboard" className="btn-primary">
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-transition pt-24 pb-16">
       <div className="page-container">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-medium mb-2">Interview Performance Report</h1>
+            <div className="flex items-center mb-2">
+              <Link to="/dashboard" className="mr-2 p-1 rounded-full hover:bg-muted">
+                <ChevronLeft size={20} />
+              </Link>
+              <h1 className="text-3xl font-medium">Interview Performance Report</h1>
+            </div>
             <p className="text-foreground/70">
-              Software Engineer Interview • June 15, 2023
+              {report?.role || 'Interview'} • {report ? formatDate(report.date) : ''}
             </p>
           </div>
           
@@ -53,123 +203,135 @@ const Report: React.FC = () => {
           </div>
         </div>
 
-        {/* Overall Score */}
-        <div className="glass-card mb-10">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="relative">
-              <svg className="w-48 h-48">
-                <circle
-                  className="text-muted"
-                  strokeWidth="8"
-                  stroke="currentColor"
-                  fill="transparent"
-                  r="70"
-                  cx="96"
-                  cy="96"
-                />
-                <circle
-                  className="text-primary"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="transparent"
-                  r="70"
-                  cx="96"
-                  cy="96"
-                  strokeDasharray={440}
-                  strokeDashoffset={440 - (440 * calculateOverallScore()) / 100}
-                  style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-4xl font-medium">{calculateOverallScore()}%</span>
+        {report ? (
+          <>
+            <div className="glass-card mb-10">
+              <div className="flex flex-col md:flex-row items-center gap-8">
+                <div className="relative">
+                  <svg className="w-48 h-48">
+                    <circle
+                      className="text-muted"
+                      strokeWidth="8"
+                      stroke="currentColor"
+                      fill="transparent"
+                      r="70"
+                      cx="96"
+                      cy="96"
+                    />
+                    <circle
+                      className="text-primary"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="transparent"
+                      r="70"
+                      cx="96"
+                      cy="96"
+                      strokeDasharray={440}
+                      strokeDashoffset={440 - (440 * report.overall_score) / 100}
+                      style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-4xl font-medium">{report.overall_score}%</span>
+                  </div>
+                </div>
+
+                <div className="flex-1">
+                  <h2 className="text-2xl font-medium mb-4">Overall Assessment</h2>
+                  <p className="text-foreground/80 mb-4">
+                    {report.overall_score >= 90 ? 
+                      "Exceptional performance! You demonstrated outstanding skills and readiness for this role." :
+                      report.overall_score >= 80 ?
+                      "Strong performance! You demonstrated solid skills and good preparation for this role." :
+                      report.overall_score >= 70 ?
+                      "Good performance with some areas for improvement. Continue practicing to enhance your skills." :
+                      "You have potential but need more practice in key areas to improve your interview performance."}
+                  </p>
+                  <div className="space-y-2">
+                    {report.overall_score >= 75 && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-green-500 font-medium">✓</span>
+                        <p>Clear communication and well-structured responses</p>
+                      </div>
+                    )}
+                    {report.technical_metrics.some(metric => metric.value >= 80) && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-green-500 font-medium">✓</span>
+                        <p>Strong technical knowledge and problem-solving skills</p>
+                      </div>
+                    )}
+                    {report.personality_metrics.some(metric => metric.value < 80) && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-yellow-500 font-medium">△</span>
+                        <p>Consider working on confidence and adaptability in interviews</p>
+                      </div>
+                    )}
+                    {report.communication_metrics.some(metric => metric.value < 80) && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-yellow-500 font-medium">△</span>
+                        <p>Focus on improving clarity and articulation in your responses</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex-1">
-              <h2 className="text-2xl font-medium mb-4">Overall Assessment</h2>
-              <p className="text-foreground/80 mb-4">
-                You demonstrated strong technical skills and excellent communication abilities.
-                Your performance indicates that you are well-prepared for software engineering interviews.
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+              <ReportCard title="Technical Skills" metrics={report.technical_metrics} />
+              <ReportCard title="Communication" metrics={report.communication_metrics} />
+              <ReportCard title="Personal Attributes" metrics={report.personality_metrics} />
+            </div>
+
+            {report.qa_details && report.qa_details.length > 0 && (
+              <div className="glass-card mb-10">
+                <h2 className="text-2xl font-medium mb-6">Question & Answer Analysis</h2>
+                <div className="space-y-6">
+                  {report.qa_details.map((qa, index) => (
+                    <div key={index} className="border-b border-border pb-6 mb-6 last:border-0 last:mb-0 last:pb-0">
+                      <h3 className="font-medium text-lg mb-2">Question {index + 1}</h3>
+                      <p className="bg-muted/50 p-3 rounded-md mb-4">{qa.question}</p>
+                      
+                      <h4 className="font-medium text-sm text-foreground/80 mb-2">Your Answer:</h4>
+                      <p className="bg-secondary/10 p-3 rounded-md mb-4">{qa.answer}</p>
+                      
+                      {qa.assessment && (
+                        <>
+                          <h4 className="font-medium text-sm text-foreground/80 mb-2">Analysis:</h4>
+                          <p className="text-sm bg-primary/5 p-3 rounded-md">{qa.assessment}</p>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="glass-card text-center p-8">
+              <h2 className="text-2xl font-medium mb-4">Ready for your next challenge?</h2>
+              <p className="text-foreground/70 mb-6 max-w-2xl mx-auto">
+                Continue practicing to improve your interview skills and track your progress over time.
               </p>
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <span className="text-green-500 font-medium">✓</span>
-                  <p>Excellent problem-solving approach with clear communication</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-green-500 font-medium">✓</span>
-                  <p>Strong understanding of technical concepts and implementation</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-yellow-500 font-medium">△</span>
-                  <p>Consider improving time management during complex problems</p>
-                </div>
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <Link to="/interview" className="btn-primary">
+                  Start New Interview
+                </Link>
+                <Link to="/dashboard" className="btn-outline">
+                  Back to Dashboard
+                </Link>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Performance Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <ReportCard title="Technical Skills" metrics={technicalMetrics} />
-          <ReportCard title="Communication" metrics={communicationMetrics} />
-          <ReportCard title="Personal Attributes" metrics={personalityMetrics} />
-        </div>
-
-        {/* Interview Questions */}
-        <div className="glass-card mb-10">
-          <h2 className="text-2xl font-medium mb-6">Questions Breakdown</h2>
-          <div className="space-y-6">
-            {[
-              {
-                question: "Explain how you would design a scalable web application",
-                assessment: "Strong understanding of architecture principles and trade-offs",
-                score: 92
-              },
-              {
-                question: "Describe a challenging project you worked on recently",
-                assessment: "Clear communication of roles, challenges and solutions",
-                score: 88
-              },
-              {
-                question: "Implement a function to reverse a linked list",
-                assessment: "Correct solution with good time complexity analysis",
-                score: 85
-              }
-            ].map((item, index) => (
-              <div key={index} className="p-4 rounded-lg bg-muted/30">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-medium">{item.question}</h3>
-                  <span className={`px-2 py-1 rounded-md text-sm font-medium ${
-                    item.score >= 90 ? 'bg-green-100 text-green-800' :
-                    item.score >= 80 ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {item.score}%
-                  </span>
-                </div>
-                <p className="text-foreground/70 text-sm">{item.assessment}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Call to action */}
-        <div className="glass-card text-center p-8">
-          <h2 className="text-2xl font-medium mb-4">Ready for your next challenge?</h2>
-          <p className="text-foreground/70 mb-6 max-w-2xl mx-auto">
-            Continue practicing to improve your interview skills and track your progress over time.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link to="/interview" className="btn-primary">
-              Start New Interview
-            </Link>
-            <Link to="/dashboard" className="btn-outline">
+          </>
+        ) : (
+          <div className="glass-card text-center p-12">
+            <h2 className="text-2xl font-medium mb-4">Report Not Found</h2>
+            <p className="mb-6">The requested report could not be found.</p>
+            <Link to="/dashboard" className="btn-primary">
               Back to Dashboard
             </Link>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

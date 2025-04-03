@@ -1,40 +1,79 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, PieChart, Clock, Award, ChevronRight, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-interface InterviewSession {
-  id: string;
-  title: string;
-  date: string;
-  score: number;
-  duration: string;
-}
+import { reportService, Report } from '../services/reportService';
+import { toast } from "../hooks/use-toast";
 
 const Dashboard: React.FC = () => {
-  const [interviewHistory] = useState<InterviewSession[]>([
-    {
-      id: '1',
-      title: 'Software Engineer Interview',
-      date: '2023-06-15',
-      score: 85,
-      duration: '32 min'
-    },
-    {
-      id: '2',
-      title: 'Product Manager Interview',
-      date: '2023-06-10',
-      score: 92,
-      duration: '45 min'
-    },
-    {
-      id: '3',
-      title: 'Data Scientist Interview',
-      date: '2023-06-05',
-      score: 78,
-      duration: '28 min'
-    }
-  ]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Check if we're in development mode (no auth token)
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          // In development, use mock data
+          setReports([
+            {
+              _id: '1',
+              session_id: 's1',
+              user_id: 'u1',
+              date: '2023-06-15',
+              overall_score: 85,
+              role: 'Software Engineer',
+              technical_metrics: [],
+              communication_metrics: [],
+              personality_metrics: [],
+            },
+            {
+              _id: '2',
+              session_id: 's2',
+              user_id: 'u1',
+              date: '2023-06-10',
+              overall_score: 92,
+              role: 'Product Manager',
+              technical_metrics: [],
+              communication_metrics: [],
+              personality_metrics: [],
+            },
+            {
+              _id: '3',
+              session_id: 's3',
+              user_id: 'u1',
+              date: '2023-06-05',
+              overall_score: 78,
+              role: 'Data Scientist',
+              technical_metrics: [],
+              communication_metrics: [],
+              personality_metrics: [],
+            }
+          ]);
+          setIsLoading(false);
+          return;
+        }
+        
+        // If in production with real auth, fetch reports from backend
+        const fetchedReports = await reportService.getReports();
+        setReports(fetchedReports);
+      } catch (error) {
+        console.error("Failed to fetch reports:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your interview reports. Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchReports();
+  }, []);
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -66,8 +105,8 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-sm text-foreground/70">Average Score</p>
               <p className="text-2xl font-medium">
-                {interviewHistory.reduce((sum, session) => sum + session.score, 0) / 
-                 Math.max(interviewHistory.length, 1)}%
+                {reports.length > 0 ? 
+                  Math.round(reports.reduce((sum, report) => sum + report.overall_score, 0) / reports.length) : 0}%
               </p>
             </div>
           </div>
@@ -77,8 +116,8 @@ const Dashboard: React.FC = () => {
               <Calendar size={24} />
             </div>
             <div>
-              <p className="text-sm text-foreground/70">Total Sessions</p>
-              <p className="text-2xl font-medium">{interviewHistory.length}</p>
+              <p className="text-sm text-foreground/70">Total Interviews</p>
+              <p className="text-2xl font-medium">{reports.length}</p>
             </div>
           </div>
           
@@ -89,9 +128,7 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-sm text-foreground/70">Practice Time</p>
               <p className="text-2xl font-medium">
-                {interviewHistory.reduce((sum, session) => {
-                  return sum + parseInt(session.duration.split(' ')[0]);
-                }, 0)} min
+                {reports.length * 30} min
               </p>
             </div>
           </div>
@@ -117,14 +154,14 @@ const Dashboard: React.FC = () => {
           </Link>
           
           <Link 
-            to="/report" 
+            to={reports.length > 0 ? `/report/${reports[0]._id}` : "/dashboard"} 
             className="glass-card hover:shadow-glass-lg transition-all hover:-translate-y-1 group"
           >
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-xl font-medium mb-2">View Reports</h3>
+                <h3 className="text-xl font-medium mb-2">Latest Report</h3>
                 <p className="text-foreground/70">
-                  Analyze your performance and get insights
+                  View your most recent interview performance
                 </p>
               </div>
               <div className="rounded-full p-4 bg-primary text-white group-hover:bg-primary/90 transition-colors">
@@ -134,42 +171,45 @@ const Dashboard: React.FC = () => {
           </Link>
         </div>
 
-        {/* Recent Interview History */}
+        {/* Interview Reports */}
         <div>
-          <h2 className="text-2xl font-medium mb-6">Recent Interview Sessions</h2>
+          <h2 className="text-2xl font-medium mb-6">Interview Reports</h2>
           
-          {interviewHistory.length === 0 ? (
+          {isLoading ? (
+            <div className="glass-card text-center p-8">
+              <p>Loading reports...</p>
+            </div>
+          ) : reports.length === 0 ? (
             <div className="glass-card text-center py-12">
-              <p className="text-foreground/70">No interview sessions yet</p>
+              <p className="text-foreground/70">No interview reports yet</p>
               <Link to="/interview" className="btn-primary mt-4 inline-block">
                 Start Your First Interview
               </Link>
             </div>
           ) : (
             <div className="space-y-4">
-              {interviewHistory.map((session) => (
-                <div key={session.id} className="glass-card hover:shadow-glass-lg transition-all group">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-medium">{session.title}</h3>
-                      <div className="flex items-center text-sm text-foreground/70 mt-1">
-                        <Calendar size={14} className="mr-1" />
-                        <span>{formatDate(session.date)}</span>
-                        <span className="mx-2">•</span>
-                        <Clock size={14} className="mr-1" />
-                        <span>{session.duration}</span>
+              {reports.map((report) => (
+                <div key={report._id} className="glass-card hover:shadow-glass-lg transition-all group">
+                  <Link to={`/report/${report._id}`} className="block">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-lg font-medium">{report.role || 'Interview'} Session</h3>
+                        <div className="flex items-center text-sm text-foreground/70 mt-1">
+                          <Calendar size={14} className="mr-1" />
+                          <span>{formatDate(report.date)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <div className={`text-lg font-medium mr-4 ${getScoreColor(report.overall_score)}`}>
+                          {report.overall_score}%
+                        </div>
+                        <div className="rounded-full p-2 bg-muted group-hover:bg-muted/80 transition-colors">
+                          <ChevronRight size={20} />
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center">
-                      <div className={`text-lg font-medium mr-4 ${getScoreColor(session.score)}`}>
-                        {session.score}%
-                      </div>
-                      <Link to={`/report?id=${session.id}`} className="rounded-full p-2 bg-muted group-hover:bg-muted/80 transition-colors">
-                        <ChevronRight size={20} />
-                      </Link>
-                    </div>
-                  </div>
+                  </Link>
                 </div>
               ))}
             </div>

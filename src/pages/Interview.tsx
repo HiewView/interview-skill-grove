@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import InterviewInterface from '../components/InterviewInterface';
+import InterviewInterface from '../components/interview/InterviewInterface';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
-import { Label } from '../components/ui/label';
 import { Form, FormField, FormItem, FormLabel, FormControl } from '../components/ui/form';
 import { useForm } from 'react-hook-form';
 import { interviewService, generateSessionId } from '../services/interviewService';
@@ -33,12 +32,16 @@ const Interview: React.FC = () => {
     setSessionId(generateSessionId());
   }, [location]);
   
+  // Try to load previous form data from localStorage
+  const savedFormData = localStorage.getItem('interview_form_data');
+  const parsedFormData = savedFormData ? JSON.parse(savedFormData) : null;
+  
   const form = useForm({
     defaultValues: {
-      name: '',
-      role: templateInfo?.role || '',
-      experience: '',
-      resumeText: ''
+      name: parsedFormData?.name || '',
+      role: templateInfo?.role || parsedFormData?.role || '',
+      experience: parsedFormData?.experience || '',
+      resumeText: parsedFormData?.resumeText || ''
     }
   });
 
@@ -51,6 +54,9 @@ const Interview: React.FC = () => {
 
   const onSubmit = async (data: any) => {
     try {
+      // Save form data to localStorage
+      localStorage.setItem('interview_form_data', JSON.stringify(data));
+      
       // Start the interview session
       await interviewService.startInterview({
         session_id: sessionId,
@@ -59,6 +65,7 @@ const Interview: React.FC = () => {
         experience: data.experience,
         resume_text: data.resumeText,
         template_id: templateInfo?.id,
+        use_whisper: true // Always use Whisper
       });
       
       setIsStarted(true);
@@ -125,7 +132,7 @@ const Interview: React.FC = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                   <FormField
                     control={form.control}
                     name="experience"

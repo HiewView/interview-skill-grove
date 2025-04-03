@@ -5,30 +5,52 @@ interface VideoFeedProps {
   muted?: boolean;
   mirrored?: boolean;
   className?: string;
+  onStreamReady?: (stream: MediaStream) => void;
 }
 
 const VideoFeed: React.FC<VideoFeedProps> = ({ 
   muted = false, 
   mirrored = true,
-  className = "" 
+  className = "",
+  onStreamReady
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(true);
+  const streamRef = useRef<MediaStream | null>(null);
 
+  // Setup camera and handle mute state changes
   useEffect(() => {
-    let stream: MediaStream | null = null;
-
     const setupCamera = async () => {
       try {
         setIsLoading(true);
-        stream = await navigator.mediaDevices.getUserMedia({ 
+        // If we already have a stream, stop all tracks
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        
+        // Get a new stream with video and audio
+        const stream = await navigator.mediaDevices.getUserMedia({ 
           video: true, 
-          audio: !muted 
+          audio: true
         });
         
+        // Store the stream in the ref
+        streamRef.current = stream;
+        
+        // Set the stream to the video element
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+        }
+        
+        // Update audio tracks based on muted state
+        stream.getAudioTracks().forEach(track => {
+          track.enabled = !muted;
+        });
+        
+        // Call onStreamReady callback if provided
+        if (onStreamReady) {
+          onStreamReady(stream);
         }
         
         setHasPermission(true);
@@ -42,12 +64,22 @@ const VideoFeed: React.FC<VideoFeedProps> = ({
 
     setupCamera();
 
-    // Cleanup
+    // Cleanup function
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
+  }, []); // Only run once on mount
+
+  // Handle mute/unmute without recreating the stream
+  useEffect(() => {
+    if (streamRef.current) {
+      // Toggle audio tracks based on muted state
+      streamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !muted;
+      });
+    }
   }, [muted]);
 
   return (
@@ -60,12 +92,28 @@ const VideoFeed: React.FC<VideoFeedProps> = ({
       
       {!hasPermission && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-          <p className="text-white mb-2">Camera access is required</p>
+          <p className="text-white mb-2">Camera and microphone access is required</p>
           <button 
             className="px-4 py-2 bg-primary rounded-lg text-white text-sm"
-            onClick={() => setHasPermission(true)}
+            onClick={() => {
+              setHasPermission(true);
+              navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                  streamRef.current = stream;
+                  if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                  }
+                  if (onStreamReady) {
+                    onStreamReady(stream);
+                  }
+                })
+                .catch(err => {
+                  console.error('Error accessing media devices:', err);
+                  setHasPermission(false);
+                });
+            }}
           >
-            Enable camera
+            Enable camera & mic
           </button>
         </div>
       )}
@@ -74,7 +122,7 @@ const VideoFeed: React.FC<VideoFeedProps> = ({
         ref={videoRef}
         autoPlay 
         playsInline
-        muted={muted}
+        muted={true} // Always mute video element to prevent echo
         className={`h-full w-full object-cover ${mirrored ? 'scale-x-[-1]' : ''}`}
         onLoadedData={() => setIsLoading(false)}
       />
