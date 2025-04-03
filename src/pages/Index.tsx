@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Brain, BarChart, LineChart } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Hero from '../components/Hero';
 import FeatureCard from '../components/FeatureCard';
 
@@ -42,26 +42,25 @@ const Index: React.FC = () => {
             <FeatureCard
               title="AI-powered Interviews"
               description="Experience realistic interviews with our advanced AI interviewer that adapts to your responses."
-              icon={Brain}
+              icon="brain"
             />
             
             <FeatureCard
               title="Real-time Feedback"
               description="Get instant insights on your performance with detailed analytics and improvement suggestions."
-              icon={BarChart}
+              icon="bar-chart"
             />
             
             <FeatureCard
               title="Performance Analysis"
               description="Review comprehensive reports highlighting your strengths and areas for improvement."
-              icon={LineChart}
+              icon="line-chart"
             />
           </div>
         </div>
       </div>
 
-      {/* Added mt-16 for more spacing between sections */}
-      <div className="page-section mt-16">
+      <div className="page-section">
         <div className="page-container">
           <div className="glass-card p-8 md:p-12">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">

@@ -1,581 +1,448 @@
 
 import React, { useState, useEffect } from 'react';
+import { Calendar, CheckCircle, Clock, Send, Upload, User, Users } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  PlusCircle, 
-  Calendar, 
-  MoreVertical, 
-  User, 
-  Trash2,
-  BarChart
-} from 'lucide-react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import { format } from 'date-fns';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
-import { Link } from 'react-router-dom';
-import { toast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from "@/hooks/use-toast";
 import { interviewService } from '@/services/interviewService';
-import { Badge } from '@/components/ui/badge';
-
-interface Template {
-  id: string;
-  name: string;
-  role: string;
-}
-
-interface Candidate {
-  id: string;
-  email: string;
-  name?: string;
-  status: 'pending' | 'invited' | 'completed';
-  interview_date?: string;
-  template_id: string;
-}
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { format } from 'date-fns';
 
 const CandidateManager: React.FC = () => {
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [candidateEmails, setCandidateEmails] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [candidateInput, setCandidateInput] = useState('');
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
-  const [addMethod, setAddMethod] = useState<'bulk' | 'individual'>('individual');
-  
+  const [webhookUrl, setWebhookUrl] = useState('');
+
+  // Load data on component mount
   useEffect(() => {
-    // Load templates and candidates
     const loadedTemplates = interviewService.getTemplates();
     const loadedCandidates = interviewService.getCandidates();
+    
     setTemplates(loadedTemplates);
     setCandidates(loadedCandidates);
+    
+    // If there are templates, select the first one by default
+    if (loadedTemplates.length > 0) {
+      setSelectedTemplateId(loadedTemplates[0].id);
+    }
   }, []);
-  
+
   const handleAddCandidates = () => {
-    if (!selectedTemplate) {
+    if (!selectedTemplateId) {
       toast({
-        title: "Template Required",
+        title: "Error",
         description: "Please select an interview template",
         variant: "destructive"
       });
       return;
     }
-    
-    try {
-      let emailsToAdd: string[] = [];
-      
-      if (addMethod === 'bulk') {
-        // Split by commas or newlines
-        emailsToAdd = candidateInput
-          .split(/[\n,]/)
-          .map(email => email.trim())
-          .filter(email => email.includes('@'));
-      } else {
-        // Single email
-        if (candidateInput.includes('@')) {
-          emailsToAdd = [candidateInput.trim()];
-        }
-      }
-      
-      if (emailsToAdd.length === 0) {
-        toast({
-          title: "No Valid Emails",
-          description: "Please enter valid email addresses",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Add candidates
-      const newCandidates = interviewService.addCandidates(emailsToAdd, selectedTemplate);
-      setCandidates(prev => [...prev, ...newCandidates]);
-      
-      toast({
-        title: "Candidates Added",
-        description: `Successfully added ${newCandidates.length} candidate(s)`,
-      });
-      
-      // Reset and close dialog
-      setCandidateInput('');
-      setSelectedTemplate('');
-      setAddMethod('individual');
-      setShowAddDialog(false);
-    } catch (error) {
-      console.error("Error adding candidates:", error);
+
+    if (!candidateEmails.trim()) {
       toast({
         title: "Error",
-        description: "Failed to add candidates. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-  
-  const handleScheduleInterviews = () => {
-    if (!selectedDate || selectedCandidates.length === 0) {
-      toast({
-        title: "Missing Information",
-        description: "Please select both a date and at least one candidate",
+        description: "Please enter at least one email address",
         variant: "destructive"
       });
       return;
     }
-    
+
     try {
-      // Format date to ISO string
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      // Parse emails (one per line or comma-separated)
+      const emails = candidateEmails
+        .split(/[\n,]/)
+        .map(email => email.trim())
+        .filter(email => email !== '');
+
+      if (emails.length === 0) {
+        toast({
+          title: "Error",
+          description: "No valid email addresses found",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Add candidates
+      const newCandidates = interviewService.addCandidates(emails, selectedTemplateId);
+      setCandidates(prev => [...prev, ...newCandidates]);
       
-      // Schedule interviews
-      interviewService.scheduleCandidateInterviews(selectedCandidates, dateStr);
-      
-      // Update local state - Using explicit typing to ensure type compatibility
-      const updatedCandidates = candidates.map(candidate => {
-        if (selectedCandidates.includes(candidate.id)) {
-          return {
-            ...candidate,
-            status: 'invited' as const,
-            interview_date: dateStr
-          };
-        }
-        return candidate;
-      });
-      
-      setCandidates(updatedCandidates);
-      
+      setIsAddDialogOpen(false);
+      setCandidateEmails('');
+
       toast({
-        title: "Interviews Scheduled",
-        description: `Successfully scheduled ${selectedCandidates.length} interview(s)`,
+        title: "Success",
+        description: `Added ${newCandidates.length} candidates`,
       });
-      
-      // Reset and close dialog
-      setSelectedCandidates([]);
-      setSelectedDate(undefined);
-      setShowScheduleDialog(false);
     } catch (error) {
-      console.error("Error scheduling interviews:", error);
+      console.error("Error adding candidates:", error);
       toast({
         title: "Error",
-        description: "Failed to schedule interviews. Please try again.",
+        description: "Failed to add candidates",
         variant: "destructive"
       });
     }
   };
-  
-  const handleDeleteCandidate = (candidateId: string) => {
-    // Filter out the candidate
-    const updatedCandidates = candidates.filter(c => c.id !== candidateId);
-    setCandidates(updatedCandidates);
-    
-    // Update local storage
-    localStorage.setItem('interview_candidates', JSON.stringify(updatedCandidates));
-    
-    toast({
-      title: "Candidate Removed",
-      description: "The candidate has been removed",
+
+  const toggleCandidateSelection = (candidateId: string) => {
+    setSelectedCandidates(prev => {
+      if (prev.includes(candidateId)) {
+        return prev.filter(id => id !== candidateId);
+      } else {
+        return [...prev, candidateId];
+      }
     });
   };
-  
-  const toggleCandidateSelection = (candidateId: string) => {
-    if (selectedCandidates.includes(candidateId)) {
-      setSelectedCandidates(prev => prev.filter(id => id !== candidateId));
-    } else {
-      setSelectedCandidates(prev => [...prev, candidateId]);
+
+  const handleScheduleInterviews = async () => {
+    if (selectedCandidates.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one candidate",
+        variant: "destructive"
+      });
+      return;
     }
-  };
-  
-  const getTemplateNameById = (templateId: string): string => {
-    const template = templates.find(t => t.id === templateId);
-    return template?.name || "Unknown Template";
-  };
-  
-  // Group candidates by template for analysis
-  const templateCandidateCounts = templates.reduce((acc, template) => {
-    const candidatesForTemplate = candidates.filter(c => c.template_id === template.id);
-    const completedCount = candidatesForTemplate.filter(c => c.status === 'completed').length;
-    
-    if (candidatesForTemplate.length > 0) {
-      acc.push({
-        templateId: template.id,
-        templateName: template.name,
-        role: template.role,
-        totalCandidates: candidatesForTemplate.length,
-        completedInterviews: completedCount,
-        hasCompletedInterviews: completedCount > 0
+
+    if (!selectedDate) {
+      toast({
+        title: "Error",
+        description: "Please select an interview date",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Schedule interviews
+      interviewService.scheduleCandidateInterviews(
+        selectedCandidates,
+        format(selectedDate, 'yyyy-MM-dd')
+      );
+
+      // If webhook URL is provided, trigger it (in a real app)
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            mode: "no-cors",
+            body: JSON.stringify({
+              action: "schedule_interviews",
+              candidates: selectedCandidates.length,
+              date: format(selectedDate, 'yyyy-MM-dd')
+            }),
+          });
+          console.log("Webhook triggered successfully");
+        } catch (error) {
+          console.error("Error triggering webhook:", error);
+        }
+      }
+
+      // Update UI
+      const updatedCandidates = interviewService.getCandidates();
+      setCandidates(updatedCandidates);
+      
+      setIsScheduleDialogOpen(false);
+      setSelectedCandidates([]);
+      setSelectedDate(undefined);
+
+      toast({
+        title: "Interviews Scheduled",
+        description: `Successfully scheduled ${selectedCandidates.length} interviews`,
+      });
+    } catch (error) {
+      console.error("Error scheduling interviews:", error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule interviews",
+        variant: "destructive"
       });
     }
-    return acc;
-  }, [] as Array<{
-    templateId: string;
-    templateName: string;
-    role: string;
-    totalCandidates: number;
-    completedInterviews: number;
-    hasCompletedInterviews: boolean;
-  }>);
+  };
+
+  const getTemplateNameById = (id: string) => {
+    const template = templates.find(t => t.id === id);
+    return template ? template.name : 'Unknown Template';
+  };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Candidate Management</h2>
+        <h2 className="text-xl font-medium">Manage Candidates</h2>
         <div className="space-x-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowScheduleDialog(true)}
-            disabled={candidates.filter(c => c.status === 'pending').length === 0}
-          >
-            <Calendar className="mr-2 h-4 w-4" />
-            Schedule Interviews
-          </Button>
-          <Button onClick={() => setShowAddDialog(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Candidates
-          </Button>
-        </div>
-      </div>
-      
-      {/* Candidate Analysis Cards */}
-      {templateCandidateCounts.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {templateCandidateCounts.map((stats) => (
-            <Card key={stats.templateId}>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-medium mb-2">{stats.templateName}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{stats.role}</p>
-                
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span>Total Candidates</span>
-                      <span className="font-medium">{stats.totalCandidates}</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full mt-1 overflow-hidden">
-                      <div 
-                        className="h-full bg-blue-500"
-                        style={{ width: '100%' }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span>Completed Interviews</span>
-                      <span className="font-medium">
-                        {stats.completedInterviews} / {stats.totalCandidates}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full mt-1 overflow-hidden">
-                      <div 
-                        className="h-full bg-green-500"
-                        style={{ width: `${(stats.completedInterviews / stats.totalCandidates) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-4">
-                    <Link to={`/compare/${stats.templateId}`}>
-                      <Button 
-                        className="w-full" 
-                        disabled={!stats.hasCompletedInterviews}
-                      >
-                        <BarChart className="mr-2 h-4 w-4" />
-                        {stats.hasCompletedInterviews 
-                          ? "Compare Candidates" 
-                          : "No Completed Interviews"}
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-      
-      {/* Candidate List */}
-      {candidates.length > 0 ? (
-        <div className="border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Template</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {candidates.map(candidate => (
-                <TableRow key={candidate.id}>
-                  <TableCell>
-                    <div className="font-medium">{candidate.email}</div>
-                    {candidate.name && (
-                      <div className="text-sm text-muted-foreground">{candidate.name}</div>
-                    )}
-                  </TableCell>
-                  <TableCell>{getTemplateNameById(candidate.template_id)}</TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={
-                        candidate.status === 'completed' ? 'default' : 
-                        candidate.status === 'invited' ? 'outline' : 'secondary'
-                      }
-                    >
-                      {candidate.status === 'completed' ? 'Completed' : 
-                       candidate.status === 'invited' ? 'Scheduled' : 'Pending'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {candidate.interview_date ? format(new Date(candidate.interview_date), 'MMM dd, yyyy') : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {candidate.status === 'completed' && (
-                          <DropdownMenuItem 
-                            onSelect={() => {
-                              window.open(`/report/${candidate.id}`, '_blank');
-                            }}
-                          >
-                            View Report
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onSelect={() => {
-                            const url = `/interview?template_id=${candidate.template_id}&candidate_id=${candidate.id}`;
-                            window.open(url, '_blank');
-                          }}
-                        >
-                          Start Interview
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onSelect={() => handleDeleteCandidate(candidate.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <Card className="border-dashed border-2 bg-muted/50">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="rounded-full bg-primary/10 p-3 mb-4">
-              <User className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">No Candidates Yet</h3>
-            <p className="text-sm text-foreground/70 text-center max-w-md mb-4">
-              Add candidates to interview using your templates. You can add them individually or in bulk.
-            </p>
-            <Button onClick={() => setShowAddDialog(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Candidates
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* Add Candidates Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Candidates</DialogTitle>
-            <DialogDescription>
-              Add candidates for interview and assign them to a template
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label>Template</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map(template => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Add Method</Label>
-              <RadioGroup value={addMethod} onValueChange={(value) => setAddMethod(value as 'bulk' | 'individual')}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="individual" id="individual" />
-                  <Label htmlFor="individual">Individual</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="bulk" id="bulk" />
-                  <Label htmlFor="bulk">Bulk Add</Label>
-                </div>
-              </RadioGroup>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>
-                {addMethod === 'bulk' 
-                  ? 'Candidate Emails (one per line or comma-separated)' 
-                  : 'Candidate Email'}
-              </Label>
-              {addMethod === 'bulk' ? (
-                <Textarea 
-                  value={candidateInput}
-                  onChange={(e) => setCandidateInput(e.target.value)}
-                  placeholder="candidate1@example.com,
-candidate2@example.com"
-                  rows={4}
-                />
-              ) : (
-                <Input
-                  type="email"
-                  value={candidateInput}
-                  onChange={(e) => setCandidateInput(e.target.value)}
-                  placeholder="candidate@example.com"
-                />
-              )}
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddCandidates}>
-              Add Candidates
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Schedule Dialog */}
-      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Schedule Interviews</DialogTitle>
-            <DialogDescription>
-              Select a date and candidates to schedule interviews
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label>Interview Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP") : "Select a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+          <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                disabled={candidates.filter(c => c.status === "pending").length === 0}
+              >
+                <Send size={16} />
+                Schedule Interviews
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Schedule Interviews</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Select Interview Date</Label>
                   <CalendarComponent
                     mode="single"
                     selected={selectedDate}
                     onSelect={setSelectedDate}
-                    initialFocus
+                    disabled={(date) => date < new Date()}
+                    className="rounded-md border"
                   />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Select Candidates</Label>
-              <div className="border rounded-md max-h-64 overflow-y-auto p-1">
-                {candidates
-                  .filter(candidate => candidate.status === 'pending')
-                  .map(candidate => (
-                    <div 
-                      key={candidate.id} 
-                      className={`flex items-center p-2 rounded-md ${
-                        selectedCandidates.includes(candidate.id) 
-                          ? 'bg-primary/10' 
-                          : 'hover:bg-muted cursor-pointer'
-                      }`}
-                      onClick={() => toggleCandidateSelection(candidate.id)}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mr-2"
-                        checked={selectedCandidates.includes(candidate.id)}
-                        onChange={() => toggleCandidateSelection(candidate.id)}
-                      />
-                      <div className="overflow-hidden">
-                        <div className="text-sm font-medium truncate">{candidate.email}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {getTemplateNameById(candidate.template_id)}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="webhook">Zapier Webhook URL (Optional)</Label>
+                  <Input
+                    id="webhook"
+                    placeholder="https://hooks.zapier.com/..."
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    If provided, this webhook will be triggered when interviews are scheduled
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Select Candidates</Label>
+                  <div className="max-h-[200px] overflow-y-auto border rounded-md p-2">
+                    {candidates
+                      .filter(c => c.status === "pending")
+                      .map(candidate => (
+                        <div 
+                          key={candidate.id}
+                          className="flex items-center space-x-2 py-2 border-b last:border-b-0"
+                        >
+                          <input
+                            type="checkbox"
+                            id={`candidate-${candidate.id}`}
+                            checked={selectedCandidates.includes(candidate.id)}
+                            onChange={() => toggleCandidateSelection(candidate.id)}
+                            className="h-4 w-4"
+                          />
+                          <label 
+                            htmlFor={`candidate-${candidate.id}`}
+                            className="flex-1 text-sm"
+                          >
+                            {candidate.email}
+                          </label>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      ))}
+                    
+                    {candidates.filter(c => c.status === "pending").length === 0 && (
+                      <p className="text-center py-2 text-muted-foreground text-sm">
+                        No pending candidates available
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">
-                {selectedCandidates.length} candidate(s) selected
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsScheduleDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleScheduleInterviews}>
+                  Schedule Interviews
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Upload size={16} />
+                Add Candidates
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Candidates</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="template">Interview Template</Label>
+                  <Select
+                    value={selectedTemplateId}
+                    onValueChange={setSelectedTemplateId}
+                  >
+                    <SelectTrigger id="template">
+                      <SelectValue placeholder="Select template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map(template => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                      
+                      {templates.length === 0 && (
+                        <SelectItem value="none" disabled>
+                          No templates available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emails">Candidate Emails</Label>
+                  <Textarea
+                    id="emails"
+                    placeholder="Enter email addresses (one per line or comma-separated)"
+                    value={candidateEmails}
+                    onChange={(e) => setCandidateEmails(e.target.value)}
+                    className="min-h-[150px]"
+                  />
+                </div>
               </div>
-            </div>
-          </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleAddCandidates}>
+                  Add Candidates
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Dashboard cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <Users size={24} className="mb-2 text-primary" />
+            <p className="text-2xl font-bold">{candidates.length}</p>
+            <p className="text-sm text-muted-foreground">Total Candidates</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <Clock size={24} className="mb-2 text-primary" />
+            <p className="text-2xl font-bold">
+              {candidates.filter(c => c.status === "pending").length}
+            </p>
+            <p className="text-sm text-muted-foreground">Pending</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <CheckCircle size={24} className="mb-2 text-primary" />
+            <p className="text-2xl font-bold">
+              {candidates.filter(c => c.status === "invited" || c.status === "completed").length}
+            </p>
+            <p className="text-sm text-muted-foreground">Invited/Completed</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {candidates.length === 0 ? (
+        <div className="glass-card text-center py-12">
+          <User size={48} className="mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">No Candidates Yet</h3>
+          <p className="text-muted-foreground mb-6">
+            Add your first candidates to get started
+          </p>
+          <Button
+            onClick={() => setIsAddDialogOpen(true)}
+            className="flex items-center gap-2 mx-auto"
+            disabled={templates.length === 0}
+          >
+            <Upload size={16} />
+            Add Candidates
+          </Button>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleScheduleInterviews}>
-              Schedule
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {templates.length === 0 && (
+            <p className="text-sm text-muted-foreground mt-4">
+              You need to create an interview template first
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Filter by status sections */}
+          {["pending", "invited", "completed"].map((status) => {
+            const filteredCandidates = candidates.filter(c => c.status === status);
+            if (filteredCandidates.length === 0) return null;
+            
+            return (
+              <div key={status} className="space-y-4">
+                <h3 className="text-lg font-medium capitalize">
+                  {status} Candidates
+                </h3>
+                <div className="grid grid-cols-1 gap-4">
+                  {filteredCandidates.map((candidate) => (
+                    <Card key={candidate.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center space-x-3">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User size={20} className="text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{candidate.email}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Template: {getTemplateNameById(candidate.template_id)}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            {candidate.interview_date && (
+                              <div className="flex items-center mr-4 text-sm">
+                                <Calendar size={16} className="mr-1 text-muted-foreground" />
+                                <span>{candidate.interview_date}</span>
+                              </div>
+                            )}
+                            
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                              status === "invited" ? "bg-blue-100 text-blue-800" :
+                              "bg-green-100 text-green-800"
+                            }`}>
+                              {status}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

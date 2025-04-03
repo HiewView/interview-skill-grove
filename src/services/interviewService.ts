@@ -1,3 +1,4 @@
+
 /**
  * Service for communicating with the interview backend API
  */
@@ -10,7 +11,6 @@ interface StartInterviewParams {
   resume_text?: string;
   organization_id?: string;
   template_id?: string;
-  use_whisper?: boolean;
 }
 
 interface SubmitAnswerParams {
@@ -31,7 +31,6 @@ interface OrganizationTemplate {
   description: string;
   rules: string;
   questions: string[];
-  job_description?: string;
 }
 
 interface Candidate {
@@ -80,26 +79,13 @@ export const interviewService = {
    */
   async startInterview(params: StartInterviewParams): Promise<InterviewResponse> {
     try {
-      const token = localStorage.getItem('token');
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      };
-      
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
       const response = await fetch(`${API_URL}/start_interview`, {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(params),
-        credentials: "include"
       });
-      
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
       
       return await response.json();
     } catch (error) {
@@ -113,26 +99,13 @@ export const interviewService = {
    */
   async submitAnswer(params: SubmitAnswerParams): Promise<InterviewResponse> {
     try {
-      const token = localStorage.getItem('token');
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      };
-      
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
       const response = await fetch(`${API_URL}/submit_answer`, {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(params),
-        credentials: "include"
       });
-      
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
       
       return await response.json();
     } catch (error) {
@@ -140,56 +113,11 @@ export const interviewService = {
       throw error;
     }
   },
-  
-  /**
-   * End the interview session
-   */
-  async endInterview(sessionId: string): Promise<{ report_id: string }> {
-    try {
-      const token = localStorage.getItem('token');
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      };
-      
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(`${API_URL}/interview/end_interview`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ session_id: sessionId }),
-        credentials: "include"
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({
-          error: `Error ${response.status}: ${response.statusText}`
-        }));
-        console.error("End interview error data:", errorData);
-        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error("Error ending interview:", error);
-      // Return a mock response to help with navigation flow
-      return { report_id: `mock-${sessionId}` };
-    }
-  },
 
   /**
    * Create or update an interview template
    */
-  createTemplate(template: Partial<OrganizationTemplate> & { 
-    name: string; 
-    role: string; 
-    description: string; 
-    rules: string; 
-    questions: string[];
-    job_description?: string;
-  }): OrganizationTemplate {
+  createTemplate(template: Omit<OrganizationTemplate, "id">): OrganizationTemplate {
     const newTemplate: OrganizationTemplate = {
       ...template,
       id: template.id || generateSessionId(),
@@ -257,128 +185,6 @@ export const interviewService = {
     
     // In a real application, this would trigger emails to candidates
     console.log(`Scheduled interviews for ${candidateIds.length} candidates on ${date}`);
-  },
-
-  /**
-   * Compare candidates for a specific template
-   */
-  async compareCandidates(templateId: string): Promise<any> {
-    try {
-      const token = localStorage.getItem('token');
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      };
-      
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(`${API_URL}/interview/compare-candidates/${templateId}`, {
-        method: "GET",
-        headers,
-        credentials: "include"
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error("Error comparing candidates:", error);
-      
-      // Fallback: Return mock data when backend is unavailable
-      const template = this.getTemplateById(templateId);
-      
-      if (!template) {
-        throw new Error("Template not found");
-      }
-      
-      return {
-        template: {
-          id: template.id,
-          name: template.name,
-          role: template.role,
-          job_description: template.job_description || "No job description provided"
-        },
-        comparison: {
-          ranked_candidates: [
-            {
-              report_id: "mock-report-1",
-              rank: 1,
-              strengths: ["Strong technical knowledge", "Excellent communication skills"],
-              weaknesses: ["Limited experience with certain technologies"],
-              recommendation: "Highly recommended for the position",
-              overall_score: 92
-            },
-            {
-              report_id: "mock-report-2",
-              rank: 2,
-              strengths: ["Good problem-solving ability", "Team player"],
-              weaknesses: ["Communication could be improved"],
-              recommendation: "Good potential but needs mentoring",
-              overall_score: 78
-            }
-          ],
-          overall_recommendation: "The first candidate shows stronger potential for this role based on technical skills and communication ability."
-        },
-        candidates: [
-          {
-            report_id: "mock-report-1",
-            session_id: "mock-session-1",
-            overall_score: 92,
-            technical_score: 94,
-            communication_score: 90,
-            personality_score: 88
-          },
-          {
-            report_id: "mock-report-2",
-            session_id: "mock-session-2",
-            overall_score: 78,
-            technical_score: 80,
-            communication_score: 75,
-            personality_score: 82
-          }
-        ],
-        candidate_count: 2
-      };
-    }
-  },
-
-  /**
-   * Transcribe audio using Whisper
-   */
-  async transcribeAudio(audioBlob: Blob): Promise<{ transcript: string }> {
-    try {
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      formData.append('audio', audioBlob);
-      
-      const headers: HeadersInit = {};
-      
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(`${API_URL}/transcribe`, {
-        method: "POST",
-        headers,
-        body: formData,
-        credentials: "include"
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Transcription error response:", errorText);
-        throw new Error(`Transcription error: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error("Error transcribing audio:", error);
-      return { transcript: "" };
-    }
   }
 };
 
@@ -386,3 +192,4 @@ export const interviewService = {
 export const generateSessionId = (): string => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
+
