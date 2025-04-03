@@ -8,59 +8,57 @@ import {
   RotateCcw,
   Save,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 interface CodingChallengeProps {
   onClose: () => void;
-  problem?: {
+  problem: {
     title: string;
     description: string;
     example: string;
     constraints: string[];
-  };
+  } | null;
 }
 
-const CodingChallenge: React.FC<CodingChallengeProps> = ({ 
-  onClose,
-  problem = {
-    title: "Two Sum",
-    description: "Given an array of integers nums and an integer target, return indices of the two numbers that add up to target.",
-    example: "Input: nums = [2,7,11,15], target = 9\nOutput: [0,1]\nExplanation: Because nums[0] + nums[1] == 9",
-    constraints: [
-      "2 ≤ nums.length ≤ 104",
-      "-109 ≤ nums[i] ≤ 109",
-      "-109 ≤ target ≤ 109"
-    ]
-  }
-}) => {
-  const [timeLeft] = useState("45:00");
+const CodingChallenge: React.FC<CodingChallengeProps> = ({ onClose, problem }) => {
+  const [timeLeft] = useState("15:00");
   const [code, setCode] = useState("");
-  const [language, setLanguage] = useState("python");
+  const [language, setLanguage] = useState("javascript");
   
+  if (!problem) {
+    return null;
+  }
+
   return (
-    <div className="fixed inset-0 bg-gray-50 z-50 overflow-auto">
-      {/* Header */}
-      <header className="bg-white border-b p-4 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="font-semibold">Coding Challenge: {problem.title}</h1>
-            <div className="flex items-center text-gray-500">
-              <Clock className="w-4 h-4 mr-2" />
-              <span>{timeLeft}</span>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="w-full max-w-6xl bg-white rounded-lg shadow-xl flex flex-col h-[90vh]">
+        {/* Header */}
+        <header className="border-b p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <h1 className="font-semibold">Coding Challenge: {problem.title || "Problem Solving"}</h1>
+              <div className="flex items-center text-gray-500">
+                <Clock className="w-4 h-4 mr-2" />
+                <span>{timeLeft}</span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button variant="destructive" size="sm" onClick={onClose}>
+                <X className="w-4 h-4 mr-2" />
+                Close
+              </Button>
             </div>
           </div>
-          <Button variant="destructive" onClick={onClose}>Exit Challenge</Button>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Main Content */}
+        <main className="flex-1 overflow-hidden p-6 grid grid-cols-2 gap-6">
           {/* Left Panel - Problem Statement */}
-          <Card className="p-6">
+          <Card className="p-6 overflow-auto">
             <div className="prose">
-              <h2 className="text-xl font-semibold mb-4">Problem: {problem.title}</h2>
+              <h2 className="text-xl font-semibold mb-4">{problem.title || "Coding Problem"}</h2>
               
               <div className="space-y-4">
                 <div>
@@ -73,7 +71,7 @@ const CodingChallenge: React.FC<CodingChallengeProps> = ({
                 <div>
                   <h3 className="text-lg font-semibold">Example</h3>
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="font-mono text-sm whitespace-pre-line">
+                    <p className="font-mono text-sm whitespace-pre-wrap">
                       {problem.example}
                     </p>
                   </div>
@@ -92,8 +90,8 @@ const CodingChallenge: React.FC<CodingChallengeProps> = ({
           </Card>
 
           {/* Right Panel - Code Editor */}
-          <Card className="flex flex-col">
-            <div className="border-b p-4 flex items-center justify-between flex-wrap gap-2">
+          <Card className="flex flex-col overflow-hidden">
+            <div className="border-b p-4 flex items-center justify-between">
               <div className="flex space-x-2">
                 <Button variant="outline" size="sm">
                   <Play className="w-4 h-4 mr-2" />
@@ -112,23 +110,25 @@ const CodingChallenge: React.FC<CodingChallengeProps> = ({
                 <select 
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="text-sm border rounded-md p-1.5"
+                  className="text-sm border rounded p-1"
                 >
-                  <option value="python">Python</option>
                   <option value="javascript">JavaScript</option>
+                  <option value="python">Python</option>
                   <option value="java">Java</option>
+                  <option value="csharp">C#</option>
                   <option value="cpp">C++</option>
                 </select>
                 <Button>Submit Solution</Button>
               </div>
             </div>
 
-            <div className="flex-1 p-4">
+            <div className="flex-1 p-4 overflow-hidden">
               <textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="w-full h-full min-h-[400px] font-mono text-sm p-4 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder={`Write your ${language} solution here...`}
+                className="w-full h-full min-h-[400px] font-mono text-sm p-4 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                placeholder={`// Write your ${language} solution here...`}
+                spellCheck="false"
               />
             </div>
 
@@ -154,8 +154,8 @@ const CodingChallenge: React.FC<CodingChallengeProps> = ({
               </div>
             </div>
           </Card>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
