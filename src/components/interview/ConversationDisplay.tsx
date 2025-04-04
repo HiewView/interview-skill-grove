@@ -21,7 +21,7 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
     if (conversationRef.current) {
       conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
     }
-  }, [transcription]);
+  }, [transcription, interimTranscript]);
   
   return (
     <div className="flex-1 glass-card overflow-hidden flex flex-col">
@@ -58,7 +58,7 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
           </div>
         )}
         
-        {transcription.length === 0 && !isListening && (
+        {transcription.length === 0 && !isListening && !interimTranscript && (
           <div className="text-center p-6 text-muted-foreground">
             <p>Your conversation will appear here</p>
           </div>

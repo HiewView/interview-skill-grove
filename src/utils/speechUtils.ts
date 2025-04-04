@@ -81,14 +81,9 @@ const recognition: SpeechRecognitionWrapper = {
     return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
   },
   
-  start: (onResult, onSilence, silenceThreshold = 2000, useWhisper = false) => {
-    if (useWhisper) {
-      // Use server-side Whisper for recognition
-      return startWhisperRecognition(onResult, onSilence, silenceThreshold);
-    } else {
-      // Use browser's built-in speech recognition
-      return startBrowserRecognition(onResult, onSilence, silenceThreshold);
-    }
+  start: (onResult, onSilence, silenceThreshold = 2000, useWhisper = true) => {
+    // Always use Whisper for recognition
+    return startWhisperRecognition(onResult, onSilence, silenceThreshold);
   }
 };
 
@@ -191,6 +186,7 @@ const startWhisperRecognition = (
   let audioChunks: Blob[] = [];
   let isRecording = false;
   let shouldStop = false;
+  let lastTranscript = '';
   
   // Get audio stream
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -204,6 +200,13 @@ const startWhisperRecognition = (
       }
     };
     
+    mediaRecorder.onstart = () => {
+      // Show interim result
+      if (lastTranscript) {
+        onResult(lastTranscript, false);
+      }
+    };
+    
     mediaRecorder.onstop = async () => {
       if (audioChunks.length === 0 || shouldStop) return;
       
@@ -214,6 +217,9 @@ const startWhisperRecognition = (
         // Send to server for transcription
         const formData = new FormData();
         formData.append('audio', audioBlob);
+        
+        // Show that we're processing
+        onResult('...', false);
         
         // Call Whisper API
         const response = await fetch('http://127.0.0.1:5000/transcribe', {
@@ -229,10 +235,15 @@ const startWhisperRecognition = (
         
         // Only process if we actually got a transcript
         if (data.transcript && data.transcript.trim() !== '') {
+          lastTranscript = data.transcript.trim();
+          
           // Call the result handler with the transcript
-          onResult(data.transcript, true);
+          onResult(lastTranscript, true);
           
           // Start silence timer after successful transcription
+          if (silenceTimer !== null) {
+            window.clearTimeout(silenceTimer);
+          }
           silenceTimer = window.setTimeout(() => {
             onSilence();
           }, 1000); // Shorter timeout after a full transcription
@@ -250,7 +261,7 @@ const startWhisperRecognition = (
     
     // Start recording
     audioChunks = [];
-    mediaRecorder.start(3000); // Record in 3-second chunks
+    mediaRecorder.start(2000); // Record in 2-second chunks
     isRecording = true;
     
     // Set up silence detection

@@ -99,6 +99,7 @@ export const interviewService = {
       });
       
       if (!response.ok) {
+        console.error("Start interview error:", response.status, response.statusText);
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
       
@@ -132,6 +133,7 @@ export const interviewService = {
       });
       
       if (!response.ok) {
+        console.error("Submit answer error:", response.status, response.statusText);
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
       
@@ -145,7 +147,7 @@ export const interviewService = {
   /**
    * End the interview session
    */
-  async endInterview(sessionId: string): Promise<{ report_id: string }> {
+  async endInterview(sessionId: string): Promise<{ report_id?: string }> {
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {
@@ -153,15 +155,24 @@ export const interviewService = {
         "Accept": "application/json"
       };
       
-      // For ending interview, we won't require authorization
-      // because the user might not be logged in yet for candidate interviews
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       
+      // Try ending interview without requiring authorization
+      // this allows users who aren't logged in to still exit gracefully
       const response = await fetch(`${API_URL}/interview/end_interview`, {
         method: "POST",
         headers,
         body: JSON.stringify({ session_id: sessionId }),
         credentials: "include"
       });
+      
+      if (response.status === 401) {
+        // If unauthorized, we still want to let the user exit
+        console.log("Unauthorized to end interview, but allowing exit");
+        return { report_id: undefined };
+      }
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
@@ -174,7 +185,8 @@ export const interviewService = {
       return await response.json();
     } catch (error) {
       console.error("Error ending interview:", error);
-      throw error;
+      // Return empty object instead of throwing, to allow graceful exit
+      return {};
     }
   },
 

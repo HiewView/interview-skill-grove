@@ -6,8 +6,8 @@ import VideoFeed from '../ui/VideoFeed';
 import { Textarea } from '../ui/textarea';
 import { interviewService } from '../../services/interviewService';
 import { speechUtils } from '../../utils/speechUtils';
-import { Switch } from '../ui/switch';
 import { useNavigate } from 'react-router-dom';
+import ConversationDisplay from './ConversationDisplay';
 import { 
   AlertDialog, 
   AlertDialogContent, 
@@ -35,12 +35,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
-  const [useWhisper, setUseWhisper] = useState(true); // Default to using Whisper
   const [endInterviewOpen, setEndInterviewOpen] = useState(false);
-  const conversationRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<{ stop: () => void; abort: () => void } | null>(null);
+  const silenceTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
   
   // Initialize audio context
@@ -54,6 +53,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
       if (recognitionRef.current) {
         recognitionRef.current.abort();
       }
+      if (silenceTimerRef.current) {
+        window.clearTimeout(silenceTimerRef.current);
+      }
     };
   }, []);
   
@@ -64,18 +66,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
 
   // Start speech recognition
   const startListening = () => {
-    if (!useWhisper && !speechUtils.recognition.isSupported()) {
-      toast({
-        title: "Speech Recognition Not Supported",
-        description: "Your browser doesn't support speech recognition. Try using Whisper instead.",
-        variant: "destructive"
-      });
-      setUseWhisper(true);
-      return;
-    }
-
     if (recognitionRef.current) {
       recognitionRef.current.abort();
+    }
+    if (silenceTimerRef.current) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
 
     // Only start if not muted
@@ -103,12 +99,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           }
         },
         3000, // 3 seconds of silence threshold
-        useWhisper // Use Whisper if enabled
+        true // Always use Whisper
       );
       setIsListening(true);
       toast({
         title: "Listening",
-        description: `Speak your answer. Using ${useWhisper ? "Whisper" : "browser"} speech recognition.`,
+        description: "Speak your answer. Using Whisper for speech recognition.",
       });
     }
   };
@@ -140,7 +136,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           experience: formData.experience || "3",
           resume_text: formData.resumeText || "",
           organization_id: templateInfo?.organization_id,
-          template_id: templateInfo?.id
+          template_id: templateInfo?.id,
+          use_whisper: true
         });
         
         if (response.first_question) {
@@ -178,6 +175,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     // Clean up when component unmounts
     return () => {
       stopListening();
+      if (silenceTimerRef.current) {
+        window.clearTimeout(silenceTimerRef.current);
+      }
     };
   }, [sessionId, templateInfo]);
   
@@ -194,13 +194,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     
     return () => clearInterval(interval);
   }, [timer]);
-  
-  // Scroll to bottom of conversation
-  useEffect(() => {
-    if (conversationRef.current) {
-      conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
-    }
-  }, [transcription]);
   
   // Text-to-speech functionality
   const speakText = async (text: string) => {
@@ -285,29 +278,45 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
       setIsLoading(true);
       
       // End interview on server
-      const result = await interviewService.endInterview(sessionId);
+      let result;
+      try {
+        result = await interviewService.endInterview(sessionId);
+      } catch (error) {
+        console.error("Error from server:", error);
+        // If we get 401 error, it means we're not authenticated but we can still navigate away
+        toast({
+          title: "Interview Completed",
+          description: "Your interview session has ended",
+        });
+        setTimeout(() => navigate('/'), 1000);
+        return;
+      }
       
       toast({
         title: "Interview Completed",
         description: "Your interview has been completed and recorded",
       });
       
-      // Navigate to report page
-      if (result.report_id) {
+      // Navigate to report page or home
+      if (result && result.report_id) {
         setTimeout(() => {
           navigate(`/report/${result.report_id}`);
         }, 1000);
       } else {
-        navigate('/dashboard');
+        setTimeout(() => {
+          navigate('/');
+        }, 1000);
       }
       
     } catch (error) {
       console.error("Error ending interview:", error);
       toast({
         title: "Error",
-        description: "Failed to end the interview. Please try again.",
+        description: "Failed to end the interview, but you can still leave.",
         variant: "destructive"
       });
+      // Navigate away anyway
+      setTimeout(() => navigate('/'), 1000);
     } finally {
       setIsLoading(false);
       setEndInterviewOpen(false);
@@ -325,19 +334,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   };
   
-  // Toggle between Whisper and browser recognition
-  const toggleWhisper = () => {
-    stopListening();
-    setUseWhisper(!useWhisper);
-    
-    // Restart listening with new recognition type
-    setTimeout(() => {
-      if (!isMuted) {
-        startListening();
-      }
-    }, 300);
-  };
-  
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -347,8 +343,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   
   return (
     <div className="flex flex-col h-full">
-      {/* Header with progress and timer */}
-      <div className="px-6 py-4 border-b">
+      {/* Header with progress and timer - made sticky */}
+      <div className="px-6 py-4 border-b sticky top-0 bg-background z-10">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">Interview Progress</span>
           <span className="text-sm font-medium">{formatTime(timer)}</span>
@@ -383,19 +379,25 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">TTS</span>
-                  <Switch 
-                    checked={ttsEnabled} 
-                    onCheckedChange={setTtsEnabled} 
-                  />
-                </div>
-                
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-sm">Whisper STT</span>
-                  <Switch 
-                    checked={useWhisper} 
-                    onCheckedChange={toggleWhisper} 
-                  />
+                  <span className="text-sm">Text-to-Speech</span>
+                  <div className="ml-2">
+                    <input 
+                      type="checkbox" 
+                      id="tts-toggle"
+                      checked={ttsEnabled}
+                      onChange={() => setTtsEnabled(!ttsEnabled)}
+                      className="sr-only"
+                    />
+                    <label 
+                      htmlFor="tts-toggle"
+                      className={`block w-10 h-5 rounded-full transition-colors duration-200 ease-in-out relative cursor-pointer ${ttsEnabled ? 'bg-primary' : 'bg-muted'}`}
+                    >
+                      <span 
+                        className={`block w-4 h-4 rounded-full bg-white absolute transition-transform duration-200 ease-in-out ${ttsEnabled ? 'transform translate-x-5' : 'transform translate-x-1'}`}
+                        style={{ top: '2px' }}
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -404,43 +406,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         
         {/* Transcription and controls */}
         <div className="flex flex-col space-y-6">
-          <div className="flex-1 glass-card overflow-hidden flex flex-col">
-            <h3 className="text-lg font-medium mb-4">Current Question</h3>
-            <div className="bg-muted/50 rounded-lg p-4 mb-4">
-              <p className="text-lg">{currentQuestion || "Loading..."}</p>
-            </div>
-            
-            <h3 className="text-lg font-medium mb-2">Conversation</h3>
-            <div 
-              ref={conversationRef}
-              className="flex-1 overflow-y-auto rounded-lg bg-muted/30 p-4 space-y-3"
-            >
-              {transcription.map((text, index) => (
-                <div 
-                  key={index} 
-                  className={`p-3 rounded-lg ${
-                    text.startsWith('AI:') 
-                      ? 'bg-primary/10 text-foreground mr-12' 
-                      : 'bg-secondary text-foreground ml-12'
-                  } animate-in slide-in-from-bottom-2 duration-300`}
-                >
-                  <p>{text}</p>
-                </div>
-              ))}
-              
-              {isListening && interimTranscript && (
-                <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12 animate-pulse">
-                  <p>You: {interimTranscript}</p>
-                </div>
-              )}
-              
-              {transcription.length === 0 && !isListening && (
-                <div className="text-center p-6 text-muted-foreground">
-                  <p>Your conversation will appear here</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <ConversationDisplay
+            transcription={transcription}
+            interimTranscript={interimTranscript}
+            isListening={isListening}
+            currentQuestion={currentQuestion}
+          />
           
           {/* Input area */}
           <div className="flex flex-col space-y-4">
