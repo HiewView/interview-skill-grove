@@ -34,7 +34,7 @@ const NavBar: React.FC = () => {
   };
 
   return (
-    <nav className="fixed w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50 border-b border-border">
+    <header className="fixed top-0 left-0 right-0 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50 border-b border-border">
       <div className="max-w-[1200px] mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
@@ -130,7 +130,7 @@ const NavBar: React.FC = () => {
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   );
 };
 
