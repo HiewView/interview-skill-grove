@@ -1,4 +1,3 @@
-
 /**
  * Service for communicating with the interview backend API
  */
@@ -42,6 +41,35 @@ interface Candidate {
   status: "pending" | "invited" | "completed";
   interview_date?: string;
   template_id: string;
+}
+
+interface ComparisonData {
+  template: {
+    id: string;
+    name: string;
+    role: string;
+    job_description: string;
+  };
+  comparison: {
+    ranked_candidates: Array<{
+      report_id: string;
+      rank: number;
+      strengths: string[];
+      weaknesses: string[];
+      recommendation: string;
+      overall_score: number;
+    }>;
+    overall_recommendation: string;
+  };
+  candidates: Array<{
+    report_id: string;
+    session_id: string;
+    overall_score: number;
+    technical_score: number;
+    communication_score: number;
+    personality_score: number;
+  }>;
+  candidate_count: number;
 }
 
 // Base URL for API - customize this as needed
@@ -293,6 +321,39 @@ export const interviewService = {
       return await response.json();
     } catch (error) {
       console.error("Error transcribing audio:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Compare candidates for a specific template
+   */
+  async compareCandidates(templateId: string): Promise<ComparisonData> {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      };
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_URL}/interview/compare-candidates/${templateId}`, {
+        method: "GET",
+        headers,
+        credentials: "include"
+      });
+      
+      if (!response.ok) {
+        console.error("Compare candidates error:", response.status, response.statusText);
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error("Error comparing candidates:", error);
       throw error;
     }
   }
