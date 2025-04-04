@@ -6,7 +6,8 @@ import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Form, FormField, FormItem, FormLabel, FormControl } from '../components/ui/form';
 import { useForm } from 'react-hook-form';
-import { interviewService, generateSessionId } from '../services/interviewService';
+import { interviewService } from '../services/interviewService';
+import { generateSessionId } from '../utils/apiUtils';
 import { toast } from "@/hooks/use-toast";
 
 const Interview: React.FC = () => {
