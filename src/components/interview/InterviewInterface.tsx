@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, AlertCircle, Send } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
@@ -42,13 +41,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const silenceTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
   
-  // Initialize audio context
   useEffect(() => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     return () => {
-      // Clean up text-to-speech on unmount
       speechUtils.cancel();
       if (recognitionRef.current) {
         recognitionRef.current.abort();
@@ -59,12 +56,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     };
   }, []);
   
-  // Handle stream from VideoFeed
   const handleStreamReady = (stream: MediaStream) => {
     streamRef.current = stream;
   };
 
-  // Start speech recognition
   const startListening = () => {
     if (recognitionRef.current) {
       recognitionRef.current.abort();
@@ -74,10 +69,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
       silenceTimerRef.current = null;
     }
 
-    // Only start if not muted
     if (!isMuted) {
       recognitionRef.current = speechUtils.recognition.start(
-        // On result
         (transcript, isFinal) => {
           if (isFinal) {
             setCurrentAnswer(prev => {
@@ -89,7 +82,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             setInterimTranscript(transcript);
           }
         },
-        // On silence (user stopped speaking)
         () => {
           if (currentAnswer.trim() || interimTranscript.trim()) {
             const finalAnswer = currentAnswer || interimTranscript;
@@ -98,8 +90,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             setInterimTranscript('');
           }
         },
-        3000, // 3 seconds of silence threshold
-        true // Always use Whisper
+        3000
       );
       setIsListening(true);
       toast({
@@ -109,7 +100,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   };
 
-  // Stop speech recognition
   const stopListening = () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
@@ -118,7 +108,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     setIsListening(false);
   };
   
-  // Initialize interview session
   useEffect(() => {
     const initInterview = async () => {
       try {
@@ -126,7 +115,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         
         setIsLoading(true);
         
-        // Get candidate name from local storage if available
         const formData = JSON.parse(localStorage.getItem('interview_form_data') || '{}');
         
         const response = await interviewService.startInterview({
@@ -144,17 +132,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           setCurrentQuestion(response.first_question);
           setTranscription([`AI: ${response.first_question}`]);
           
-          // Speak the first question if TTS is enabled
           if (ttsEnabled) {
             const speech = await speakText(response.first_question);
-            // Start listening after AI finishes speaking
             speech.finished.then(() => {
               if (!isMuted) {
                 startListening();
               }
             });
           } else if (!isMuted) {
-            // Start listening immediately if TTS is disabled
             startListening();
           }
         }
@@ -172,7 +157,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     
     initInterview();
 
-    // Clean up when component unmounts
     return () => {
       stopListening();
       if (silenceTimerRef.current) {
@@ -181,13 +165,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     };
   }, [sessionId, templateInfo]);
   
-  // Interview timer
   useEffect(() => {
     const interval = setInterval(() => {
-      if (timer < 600) { // 10 minutes in seconds
+      if (timer < 600) {
         setTimer(prev => prev + 1);
         
-        // Update progress based on timer
         setProgress(Math.min((timer / 600) * 100, 100));
       }
     }, 1000);
@@ -195,15 +177,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     return () => clearInterval(interval);
   }, [timer]);
   
-  // Text-to-speech functionality
   const speakText = async (text: string) => {
-    // Cancel any ongoing speech
     speechUtils.cancel();
-    
-    // Get a voice
     const voice = speechUtils.getVoiceByLang('en-US');
-    
-    // Speak the text
     return speechUtils.speak(text, voice, {
       rate: 1,
       pitch: 1,
@@ -211,48 +187,39 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     });
   };
   
-  // Submit answer to backend
   const handleSubmitAnswer = async (answerToSubmit?: string) => {
     const finalAnswer = answerToSubmit || currentAnswer;
     if (!finalAnswer.trim() || !sessionId) return;
     
     try {
       setIsLoading(true);
-      stopListening(); // Stop listening while processing
+      stopListening();
       
-      // Add user's answer to transcription
       const userAnswer = `You: ${finalAnswer}`;
       setTranscription(prev => [...prev, userAnswer]);
       
-      // Submit to backend
       const response = await interviewService.submitAnswer({
         session_id: sessionId,
         answer: finalAnswer
       });
       
-      // Clear answer field after submission
       setCurrentAnswer('');
       
-      // Update with new question
       if (response.next_question) {
         setCurrentQuestion(response.next_question);
         setTranscription(prev => [...prev, `AI: ${response.next_question}`]);
         
-        // Speak the next question if TTS is enabled
         if (ttsEnabled) {
           const speech = await speakText(response.next_question);
-          // Start listening after AI finishes speaking
           speech.finished.then(() => {
             if (!isMuted) {
               startListening();
             }
           });
         } else if (!isMuted) {
-          // Start listening immediately if TTS is disabled
           startListening();
         }
       }
-      
     } catch (error) {
       console.error("Error submitting answer:", error);
       toast({
@@ -260,7 +227,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         description: "Failed to submit your answer",
         variant: "destructive"
       });
-      // Restart listening
       if (!isMuted) {
         startListening();
       }
@@ -270,20 +236,17 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   };
   
   const handleEndInterview = async () => {
-    // Cancel any ongoing speech
     speechUtils.cancel();
     stopListening();
     
     try {
       setIsLoading(true);
       
-      // End interview on server
       let result;
       try {
         result = await interviewService.endInterview(sessionId);
       } catch (error) {
         console.error("Error from server:", error);
-        // If we get 401 error, it means we're not authenticated but we can still navigate away
         toast({
           title: "Interview Completed",
           description: "Your interview session has ended",
@@ -297,7 +260,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         description: "Your interview has been completed and recorded",
       });
       
-      // Navigate to report page or home
       if (result && result.report_id) {
         setTimeout(() => {
           navigate(`/report/${result.report_id}`);
@@ -307,7 +269,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           navigate('/');
         }, 1000);
       }
-      
     } catch (error) {
       console.error("Error ending interview:", error);
       toast({
@@ -315,7 +276,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         description: "Failed to end the interview, but you can still leave.",
         variant: "destructive"
       });
-      // Navigate away anyway
       setTimeout(() => navigate('/'), 1000);
     } finally {
       setIsLoading(false);
@@ -323,7 +283,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   };
   
-  // Toggle microphone
   const toggleMicrophone = () => {
     if (isMuted) {
       setIsMuted(false);
@@ -334,7 +293,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
   };
   
-  // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -343,7 +301,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   
   return (
     <div className="flex flex-col h-full">
-      {/* Header with progress and timer - made sticky */}
       <div className="px-6 py-4 border-b sticky top-0 bg-background z-10">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">Interview Progress</span>
@@ -357,9 +314,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         </div>
       </div>
       
-      {/* Main interview interface */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-        {/* Video feeds */}
         <div className="flex flex-col space-y-6">
           <VideoFeed 
             className="h-72 md:h-96" 
@@ -404,7 +359,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           </div>
         </div>
         
-        {/* Transcription and controls */}
         <div className="flex flex-col space-y-6">
           <ConversationDisplay
             transcription={transcription}
@@ -413,7 +367,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             currentQuestion={currentQuestion}
           />
           
-          {/* Input area */}
           <div className="flex flex-col space-y-4">
             <div className="flex gap-2">
               <Textarea
@@ -468,7 +421,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         </div>
       </div>
       
-      {/* End Interview Confirmation Dialog */}
       <AlertDialog open={endInterviewOpen} onOpenChange={setEndInterviewOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
