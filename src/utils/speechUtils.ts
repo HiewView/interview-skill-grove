@@ -19,8 +19,7 @@ interface SpeechRecognitionWrapper {
   isSupported: () => boolean;
   start: (
     onResult: (transcript: string, isFinal: boolean) => void,
-    onSilence: () => void,
-    silenceThreshold?: number
+    onSilence: () => void
   ) => { stop: () => void; abort: () => void };
 }
 
@@ -30,7 +29,7 @@ const recognition: SpeechRecognitionWrapper = {
     return clientSpeechUtils.recognition.isSupported();
   },
   
-  start: (onResult, onSilence, silenceThreshold = 2000) => {
+  start: (onResult, onSilence) => {
     // Use client-side speech recognition
     const recognizer = clientSpeechUtils.recognition.create(
       // On result
@@ -42,12 +41,6 @@ const recognition: SpeechRecognitionWrapper = {
       // On error
       (error) => {
         console.error('Speech recognition error:', error);
-      },
-      // Options
-      {
-        continuous: true,
-        interimResults: true,
-        language: 'en-US'
       }
     );
     

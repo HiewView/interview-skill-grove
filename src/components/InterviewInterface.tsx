@@ -21,13 +21,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
   const [progress, setProgress] = useState(0);
   const [timer, setTimer] = useState(0);
   const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [isListening, setIsListening] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
-  const [useWhisper, setUseWhisper] = useState(true);
+  const [silenceTimeout, setSilenceTimeout] = useState<NodeJS.Timeout | null>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const recognitionRef = useRef<{ stop: () => void; abort: () => void } | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   
   useEffect(() => {
     if (!audioContextRef.current) {
@@ -35,9 +36,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     }
     return () => {
       speechUtils.cancel();
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
+      stopRecording();
     };
   }, []);
   
@@ -45,58 +44,113 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     streamRef.current = stream;
   };
 
-  const startListening = () => {
-    if (!useWhisper && !speechUtils.recognition.isSupported()) {
+  const startRecording = () => {
+    if (!streamRef.current) {
       toast({
-        title: "Speech Recognition Not Supported",
-        description: "Your browser doesn't support speech recognition. Try using Whisper instead.",
+        title: "Microphone Error",
+        description: "Unable to access microphone. Please check your permissions.",
         variant: "destructive"
       });
-      setUseWhisper(true);
       return;
     }
 
-    if (recognitionRef.current) {
-      recognitionRef.current.abort();
-    }
-
-    if (!isMuted) {
-      recognitionRef.current = speechUtils.recognition.start(
-        (transcript, isFinal) => {
-          if (isFinal) {
+    try {
+      // Clear any existing recording
+      audioChunksRef.current = [];
+      
+      // Create media recorder
+      const mediaRecorder = new MediaRecorder(streamRef.current);
+      mediaRecorderRef.current = mediaRecorder;
+      
+      // Set up event handlers
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      
+      // Handle recording stop
+      mediaRecorder.onstop = async () => {
+        if (audioChunksRef.current.length === 0) return;
+        
+        // Process audio when recording stops
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        // Clear for next recording
+        audioChunksRef.current = [];
+        
+        // Show processing message
+        setInterimTranscript('Processing audio...');
+        
+        try {
+          // Use Whisper transcription
+          const result = await interviewService.transcribeAudio(audioBlob);
+          const transcript = result.transcript.trim();
+          
+          if (transcript) {
+            // Update the answer with the transcription
             setCurrentAnswer(prev => {
               const newAnswer = prev ? `${prev} ${transcript}` : transcript;
               return newAnswer.trim();
             });
-            setInterimTranscript('');
-          } else {
-            setInterimTranscript(transcript);
+            
+            // If silence was detected (automatic submission), submit the answer
+            if (!isRecording) {
+              handleSubmitAnswer(transcript);
+            }
           }
-        },
-        () => {
-          if (currentAnswer.trim() || interimTranscript.trim()) {
-            const finalAnswer = currentAnswer || interimTranscript;
-            setCurrentAnswer(finalAnswer.trim());
-            handleSubmitAnswer(finalAnswer.trim());
-            setInterimTranscript('');
-          }
-        },
-        3000
-      );
-      setIsListening(true);
+        } catch (error) {
+          console.error("Transcription error:", error);
+          toast({
+            title: "Transcription Error",
+            description: "Failed to transcribe audio. Please try again or type your answer.",
+            variant: "destructive"
+          });
+        } finally {
+          setInterimTranscript('');
+        }
+      };
+      
+      // Start recording
+      mediaRecorder.start();
+      setIsRecording(true);
+      
+      // Set up silence detection timeout
+      const timeout = setTimeout(() => {
+        if (isRecording && mediaRecorderRef.current) {
+          stopRecording(true); // true indicates it was stopped due to silence
+        }
+      }, 3000); // 3 seconds of silence
+      
+      setSilenceTimeout(timeout);
+      
       toast({
-        title: "Listening",
-        description: `Speak your answer. Using ${useWhisper ? "Whisper" : "browser"} speech recognition.`,
+        title: "Recording",
+        description: "Speak your answer. Recording will automatically stop after 3 seconds of silence.",
+      });
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      toast({
+        title: "Recording Error",
+        description: "Failed to start recording. Please check your microphone.",
+        variant: "destructive"
       });
     }
   };
 
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+  const stopRecording = (fromSilence = false) => {
+    // Clear silence timeout
+    if (silenceTimeout) {
+      clearTimeout(silenceTimeout);
+      setSilenceTimeout(null);
     }
-    setIsListening(false);
+    
+    // Stop media recorder if it exists and is recording
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    
+    setIsRecording(false);
   };
 
   useEffect(() => {
@@ -115,7 +169,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           experience: formData.experience || "3",
           resume_text: formData.resumeText || "",
           organization_id: templateInfo?.organization_id,
-          template_id: templateInfo?.id
+          template_id: templateInfo?.id,
+          use_whisper: true
         });
         
         if (response.first_question) {
@@ -126,11 +181,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             const speech = await speakText(response.first_question);
             speech.finished.then(() => {
               if (!isMuted) {
-                startListening();
+                startRecording();
               }
             });
           } else if (!isMuted) {
-            startListening();
+            startRecording();
           }
         }
       } catch (error) {
@@ -148,7 +203,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     initInterview();
 
     return () => {
-      stopListening();
+      stopRecording();
     };
   }, [sessionId, templateInfo]);
   
@@ -188,7 +243,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
     
     try {
       setIsLoading(true);
-      stopListening();
+      stopRecording();
       
       const userAnswer = `You: ${finalAnswer}`;
       setTranscription(prev => [...prev, userAnswer]);
@@ -208,11 +263,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
           const speech = await speakText(response.next_question);
           speech.finished.then(() => {
             if (!isMuted) {
-              startListening();
+              startRecording();
             }
           });
         } else if (!isMuted) {
-          startListening();
+          startRecording();
         }
       }
     } catch (error) {
@@ -223,46 +278,61 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
         variant: "destructive"
       });
       if (!isMuted) {
-        startListening();
+        startRecording();
       }
     } finally {
       setIsLoading(false);
     }
   };
   
-  const handleEndInterview = () => {
-    speechUtils.cancel();
-    stopListening();
-    
-    toast({
-      title: "Interview Completed",
-      description: "Your interview has been completed and recorded",
-    });
-    
-    setTimeout(() => {
-      window.location.href = '/';
-    }, 2000);
+  const handleEndInterview = async () => {
+    try {
+      speechUtils.cancel();
+      stopRecording();
+      
+      // Call the end interview API
+      const result = await interviewService.endInterview(sessionId);
+      
+      toast({
+        title: "Interview Completed",
+        description: result.report_id ? 
+          "Your interview has been completed and a report has been generated." : 
+          "Your interview has been completed.",
+      });
+      
+      // If we have a report ID, redirect to the report page
+      if (result.report_id) {
+        setTimeout(() => {
+          window.location.href = `/report/${result.report_id}`;
+        }, 2000);
+      } else {
+        // Otherwise go to dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Error ending interview:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem ending the interview, but your progress has been saved.",
+        variant: "destructive"
+      });
+      
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 2000);
+    }
   };
   
   const toggleMicrophone = () => {
     if (isMuted) {
       setIsMuted(false);
-      startListening();
+      startRecording();
     } else {
       setIsMuted(true);
-      stopListening();
+      stopRecording();
     }
-  };
-  
-  const toggleWhisper = () => {
-    stopListening();
-    setUseWhisper(!useWhisper);
-    
-    setTimeout(() => {
-      if (!isMuted) {
-        startListening();
-      }
-    }, 300);
   };
   
   const formatTime = (seconds: number) => {
@@ -301,23 +371,15 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               </div>
               <h3 className="text-lg font-medium">AI Interviewer</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                {isLoading ? "Processing..." : (isListening ? "Listening..." : "Ready")}
+                {isLoading ? "Processing..." : (isRecording ? "Recording..." : "Ready")}
               </p>
               
               <div className="mt-4 flex flex-col items-center justify-center gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">TTS</span>
+                  <span className="text-sm">Text-to-Speech</span>
                   <Switch 
                     checked={ttsEnabled} 
                     onCheckedChange={setTtsEnabled} 
-                  />
-                </div>
-                
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-sm">Whisper STT</span>
-                  <Switch 
-                    checked={useWhisper} 
-                    onCheckedChange={toggleWhisper} 
                   />
                 </div>
               </div>
@@ -350,13 +412,19 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
                 </div>
               ))}
               
-              {isListening && interimTranscript && (
+              {isRecording && (
                 <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12 animate-pulse">
-                  <p>You: {interimTranscript}</p>
+                  <p>Recording...</p>
                 </div>
               )}
               
-              {transcription.length === 0 && !isListening && (
+              {interimTranscript && !isRecording && (
+                <div className="p-3 rounded-lg bg-secondary/50 text-foreground ml-12">
+                  <p>{interimTranscript}</p>
+                </div>
+              )}
+              
+              {transcription.length === 0 && !isRecording && !interimTranscript && (
                 <div className="text-center p-6 text-muted-foreground">
                   <p>Your conversation will appear here</p>
                 </div>
@@ -369,7 +437,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               <Textarea
                 value={currentAnswer}
                 onChange={(e) => setCurrentAnswer(e.target.value)}
-                placeholder={isListening ? "Listening to your voice..." : "Type your answer here..."}
+                placeholder={isRecording ? "Recording..." : "Type your answer here..."}
                 className="flex-1 resize-none"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -381,7 +449,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
               <button 
                 className="p-3 bg-primary text-primary-foreground rounded-md self-end hover:bg-primary/90 transition-colors"
                 onClick={() => handleSubmitAnswer()}
-                disabled={isLoading || (!currentAnswer.trim() && !interimTranscript.trim())}
+                disabled={isLoading || !currentAnswer.trim()}
               >
                 <Send size={20} />
               </button>
@@ -392,7 +460,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
                 className={`p-4 rounded-full ${
                   isMuted 
                     ? 'bg-destructive text-destructive-foreground' 
-                    : isListening 
+                    : isRecording 
                       ? 'bg-green-500 text-white animate-pulse' 
                       : 'bg-muted hover:bg-muted/80'
                 } transition-all duration-300`}

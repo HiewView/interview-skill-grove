@@ -4,64 +4,32 @@ import { Calendar, PieChart, Clock, Award, ChevronRight, Plus } from 'lucide-rea
 import { Link } from 'react-router-dom';
 import { reportService, Report } from '../services/reportService';
 import { toast } from "../hooks/use-toast";
+import { getApiHeaders, isAuthenticated } from "../utils/apiUtils";
 
 const Dashboard: React.FC = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReports = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         
-        // Check if we're in development mode (no auth token)
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          // In development, use mock data
-          setReports([
-            {
-              _id: '1',
-              session_id: 's1',
-              user_id: 'u1',
-              date: '2023-06-15',
-              overall_score: 85,
-              role: 'Software Engineer',
-              technical_metrics: [],
-              communication_metrics: [],
-              personality_metrics: [],
-            },
-            {
-              _id: '2',
-              session_id: 's2',
-              user_id: 'u1',
-              date: '2023-06-10',
-              overall_score: 92,
-              role: 'Product Manager',
-              technical_metrics: [],
-              communication_metrics: [],
-              personality_metrics: [],
-            },
-            {
-              _id: '3',
-              session_id: 's3',
-              user_id: 'u1',
-              date: '2023-06-05',
-              overall_score: 78,
-              role: 'Data Scientist',
-              technical_metrics: [],
-              communication_metrics: [],
-              personality_metrics: [],
-            }
-          ]);
-          setIsLoading(false);
+        // Check if user is authenticated
+        if (!isAuthenticated()) {
+          // Redirect to login if not authenticated
+          window.location.href = '/signin';
           return;
         }
         
-        // If in production with real auth, fetch reports from backend
+        // Fetch reports from API
         const fetchedReports = await reportService.getReports();
         setReports(fetchedReports);
       } catch (error) {
         console.error("Failed to fetch reports:", error);
+        setError("Failed to load your interview reports");
         toast({
           title: "Error",
           description: "Failed to load your interview reports. Please try again later.",
@@ -85,6 +53,17 @@ const Dashboard: React.FC = () => {
     if (score >= 75) return 'text-blue-500';
     return 'text-yellow-500';
   };
+
+  // If not authenticated, we'll redirect in the useEffect
+  if (!isAuthenticated()) {
+    return (
+      <div className="page-transition pt-24 pb-16">
+        <div className="page-container text-center">
+          <p>Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-transition pt-24 pb-16">
@@ -155,16 +134,18 @@ const Dashboard: React.FC = () => {
           
           <Link 
             to={reports.length > 0 ? `/report/${reports[0]._id}` : "/dashboard"} 
-            className="glass-card hover:shadow-glass-lg transition-all hover:-translate-y-1 group"
+            className={`glass-card transition-all ${reports.length > 0 ? 'hover:shadow-glass-lg hover:-translate-y-1' : ''} group`}
           >
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-medium mb-2">Latest Report</h3>
                 <p className="text-foreground/70">
-                  View your most recent interview performance
+                  {reports.length > 0 
+                    ? `View your ${formatDate(reports[0].date)} interview results`
+                    : "Complete an interview to generate a report"}
                 </p>
               </div>
-              <div className="rounded-full p-4 bg-primary text-white group-hover:bg-primary/90 transition-colors">
+              <div className={`rounded-full p-4 ${reports.length > 0 ? 'bg-primary text-white group-hover:bg-primary/90' : 'bg-muted text-muted-foreground'} transition-colors`}>
                 <PieChart size={24} />
               </div>
             </div>
@@ -177,12 +158,23 @@ const Dashboard: React.FC = () => {
           
           {isLoading ? (
             <div className="glass-card text-center p-8">
-              <p>Loading reports...</p>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4">Loading reports...</p>
+            </div>
+          ) : error ? (
+            <div className="glass-card text-center py-8">
+              <p className="text-destructive">{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                Try Again
+              </button>
             </div>
           ) : reports.length === 0 ? (
             <div className="glass-card text-center py-12">
               <p className="text-foreground/70">No interview reports yet</p>
-              <Link to="/interview" className="btn-primary mt-4 inline-block">
+              <Link to="/interview" className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors mt-4 inline-block">
                 Start Your First Interview
               </Link>
             </div>
@@ -202,7 +194,7 @@ const Dashboard: React.FC = () => {
                       
                       <div className="flex items-center">
                         <div className={`text-lg font-medium mr-4 ${getScoreColor(report.overall_score)}`}>
-                          {report.overall_score}%
+                          {Math.round(report.overall_score)}%
                         </div>
                         <div className="rounded-full p-2 bg-muted group-hover:bg-muted/80 transition-colors">
                           <ChevronRight size={20} />

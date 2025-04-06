@@ -3,7 +3,7 @@
  * Service for handling authentication with the backend API
  */
 
-const API_URL = "http://127.0.0.1:5000";
+import { API_URL, getApiHeaders } from '../utils/apiUtils';
 
 export interface User {
   id: string;
@@ -111,7 +111,7 @@ export const authService = {
   signOut(): void {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_info');
-    window.location.href = '/';
+    window.location.href = '/signin';
   },
   
   /**
@@ -127,5 +127,25 @@ export const authService = {
   getCurrentUser(): User | null {
     const userInfo = localStorage.getItem('user_info');
     return userInfo ? JSON.parse(userInfo) : null;
+  },
+  
+  /**
+   * Verify token validity
+   */
+  async verifyToken(): Promise<boolean> {
+    try {
+      const headers = getApiHeaders();
+      
+      const response = await fetch(`${API_URL}/auth/validate_token`, {
+        method: "GET",
+        headers,
+        credentials: "include"
+      });
+      
+      return response.ok;
+    } catch (error) {
+      console.error("Token verification error:", error);
+      return false;
+    }
   }
 };

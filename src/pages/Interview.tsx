@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import InterviewInterface from '../components/interview/InterviewInterface';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
@@ -8,13 +8,28 @@ import { Form, FormField, FormItem, FormLabel, FormControl } from '../components
 import { useForm } from 'react-hook-form';
 import { interviewService } from '../services/interviewService';
 import { generateSessionId } from '../utils/apiUtils';
+import { isAuthenticated } from '../utils/apiUtils';
 import { toast } from "@/hooks/use-toast";
 
 const Interview: React.FC = () => {
   const [isStarted, setIsStarted] = useState(false);
   const [sessionId, setSessionId] = useState('');
   const [templateInfo, setTemplateInfo] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Check authentication
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to access this feature",
+        variant: "destructive"
+      });
+      navigate('/signin', { state: { from: location.pathname + location.search } });
+    }
+  }, [navigate, location]);
   
   // Extract template ID and candidate info from URL params if present
   useEffect(() => {
@@ -23,10 +38,23 @@ const Interview: React.FC = () => {
     const candidateId = searchParams.get('candidate_id');
     
     if (templateId) {
-      const template = interviewService.getTemplateById(templateId);
-      if (template) {
-        setTemplateInfo(template);
-      }
+      const loadTemplate = async () => {
+        try {
+          const template = await interviewService.getTemplateById(templateId);
+          if (template) {
+            setTemplateInfo(template);
+          }
+        } catch (error) {
+          console.error("Failed to load template:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load interview template",
+            variant: "destructive"
+          });
+        }
+      };
+      
+      loadTemplate();
     }
     
     // Generate a unique session ID
@@ -55,6 +83,8 @@ const Interview: React.FC = () => {
 
   const onSubmit = async (data: any) => {
     try {
+      setIsLoading(true);
+      
       // Save form data to localStorage
       localStorage.setItem('interview_form_data', JSON.stringify(data));
       
@@ -66,7 +96,7 @@ const Interview: React.FC = () => {
         experience: data.experience,
         resume_text: data.resumeText,
         template_id: templateInfo?.id,
-        use_whisper: true // Always use Whisper
+        use_whisper: true
       });
       
       setIsStarted(true);
@@ -77,8 +107,15 @@ const Interview: React.FC = () => {
         description: "Failed to connect to the interview service",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  // If not authenticated, useEffect will handle redirect
+  if (!isAuthenticated()) {
+    return <div className="page-transition pt-20 min-h-screen">Checking authentication...</div>;
+  }
 
   return (
     <div className="page-transition pt-20 min-h-screen">
@@ -166,8 +203,19 @@ const Interview: React.FC = () => {
                 />
                 
                 <div className="flex justify-end">
-                  <button type="submit" className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors">
-                    Start Interview
+                  <button 
+                    type="submit" 
+                    className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <span className="mr-2">Starting</span>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white inline-block"></div>
+                      </>
+                    ) : (
+                      "Start Interview"
+                    )}
                   </button>
                 </div>
               </form>

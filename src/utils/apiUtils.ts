@@ -29,3 +29,18 @@ export const getApiHeaders = (): HeadersInit => {
 export const generateSessionId = (): string => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
+
+/**
+ * Check if user is authenticated
+ */
+export const isAuthenticated = (): boolean => {
+  return !!localStorage.getItem('auth_token');
+};
+
+/**
+ * Get current user information
+ */
+export const getCurrentUser = (): any => {
+  const userInfo = localStorage.getItem('user_info');
+  return userInfo ? JSON.parse(userInfo) : null;
+};
