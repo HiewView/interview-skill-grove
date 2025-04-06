@@ -3,6 +3,8 @@
  * Service for fetching and managing interview reports
  */
 
+import { getApiHeaders } from '../utils/apiUtils';
+
 // Base URL for API
 const API_URL = "http://127.0.0.1:5000";
 
@@ -35,15 +37,7 @@ export const reportService = {
    */
   async getReports(): Promise<Report[]> {
     try {
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      
-      // Add auth token if available
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      const headers = getApiHeaders();
       
       const response = await fetch(`${API_URL}/interview/reports`, {
         method: "GET",
@@ -51,7 +45,9 @@ export const reportService = {
       });
       
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("API Error:", response.status, errorData);
+        throw new Error(`Error ${response.status}: ${errorData.error || response.statusText}`);
       }
       
       const data = await response.json();
@@ -67,15 +63,7 @@ export const reportService = {
    */
   async getReportById(reportId: string): Promise<Report> {
     try {
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      
-      // Add auth token if available
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      const headers = getApiHeaders();
       
       const response = await fetch(`${API_URL}/interview/reports/${reportId}`, {
         method: "GET",
@@ -83,7 +71,9 @@ export const reportService = {
       });
       
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("API Error:", response.status, errorData);
+        throw new Error(`Error ${response.status}: ${errorData.error || response.statusText}`);
       }
       
       const data = await response.json();
@@ -99,15 +89,7 @@ export const reportService = {
    */
   async generateReport(sessionId: string): Promise<{ report_id: string; report: Report }> {
     try {
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      
-      // Add auth token if available
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      const headers = getApiHeaders();
       
       const response = await fetch(`${API_URL}/interview/generate-report/${sessionId}`, {
         method: "POST",
@@ -115,7 +97,9 @@ export const reportService = {
       });
       
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("API Error:", response.status, errorData);
+        throw new Error(`Error ${response.status}: ${errorData.error || response.statusText}`);
       }
       
       const data = await response.json();
