@@ -89,8 +89,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
             handleSubmitAnswer(finalAnswer.trim());
             setInterimTranscript('');
           }
-        },
-        3000
+        }
       );
       setIsListening(true);
       toast({
