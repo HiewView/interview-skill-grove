@@ -1,3 +1,4 @@
+
 /**
  * Enhanced client-side speech and recording utilities
  */
@@ -160,7 +161,7 @@ const clientAudioRecording = {
 };
 
 // Speech recognition interface
-interface SpeechRecognitionResult {
+interface SimpleSpeechRecognitionResult {
   transcript: string;
   isFinal: boolean;
 }
@@ -192,7 +193,7 @@ export const clientSpeechRecognition = {
    * Create and initialize a speech recognition instance
    */
   create(
-    onResult: (result: SpeechRecognitionResult) => void,
+    onResult: (result: SimpleSpeechRecognitionResult) => void,
     onSilence?: () => void,
     onError?: (error: string) => void,
     options: SpeechRecognitionOptions = {}
@@ -242,7 +243,7 @@ export const clientSpeechRecognition = {
       const transcript = event.results[last][0].transcript;
       const isFinal = event.results[last].isFinal;
       
-      // Send result to callback
+      // Send result to callback using SimpleSpeechRecognitionResult
       onResult({ transcript, isFinal });
       
       // Start silence detection if this is a final result
