@@ -230,7 +230,7 @@ export const clientSpeechRecognition = {
       lastSpeechTime = Date.now();
     };
     
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       // Reset silence timer on any result
       lastSpeechTime = Date.now();
       if (silenceTimer) {
@@ -256,7 +256,7 @@ export const clientSpeechRecognition = {
       }
     };
     
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       if (onError) {
         onError(event.error);
       }
