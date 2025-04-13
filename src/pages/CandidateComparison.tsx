@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, Trophy, Check, X, Star, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { interviewService } from '@/services/interviewService';
+import { comparisonService } from '@/services/comparisonService';
 import ReportCard from '@/components/ReportCard';
 
 interface ComparisonData {
@@ -57,7 +57,7 @@ const CandidateComparison: React.FC = () => {
       try {
         setIsLoading(true);
         
-        const data = await interviewService.compareCandidates(templateId);
+        const data = await comparisonService.compareCandidates(templateId);
         setComparisonData(data);
         
       } catch (error) {

@@ -2,6 +2,44 @@
  * Enhanced client-side speech and recording utilities
  */
 
+// Define speech recognition types that TypeScript doesn't know about
+interface SpeechRecognitionEvent {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+  error: any;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionError {
+  error: string;
+  message: string;
+}
+
+// Add these to the Window interface
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 // Define audio recording interface
 interface AudioRecorder {
   start: (silenceCallback?: () => void, silenceThreshold?: number) => AudioRecorder | null;

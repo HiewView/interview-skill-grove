@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -30,7 +29,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
-import { interviewService } from '@/services/interviewService';
+import { templateService } from '@/services/templateService';
 
 const RoleTemplates: React.FC = () => {
   const [templates, setTemplates] = useState<any[]>([]);
@@ -47,13 +46,11 @@ const RoleTemplates: React.FC = () => {
     questions: ['', '', '']
   });
 
-  // Load templates on component mount
   useEffect(() => {
-    const loadedTemplates = interviewService.getTemplates();
+    const loadedTemplates = templateService.getTemplates();
     setTemplates(loadedTemplates);
   }, []);
 
-  // Reset form when modal opens/closes
   useEffect(() => {
     if (!showAddModal && !showEditModal) {
       setFormState({
@@ -67,7 +64,6 @@ const RoleTemplates: React.FC = () => {
     }
   }, [showAddModal, showEditModal]);
 
-  // When editing, populate form with template data
   useEffect(() => {
     if (currentTemplate && showEditModal) {
       setFormState({
@@ -115,7 +111,6 @@ const RoleTemplates: React.FC = () => {
   };
 
   const handleSubmit = () => {
-    // Validate form
     if (!formState.name || !formState.role) {
       toast({
         title: 'Validation Error',
@@ -126,7 +121,6 @@ const RoleTemplates: React.FC = () => {
     }
 
     try {
-      // Filter out empty questions
       const filteredQuestions = formState.questions.filter(q => q.trim() !== '');
       
       if (filteredQuestions.length === 0) {
@@ -148,10 +142,8 @@ const RoleTemplates: React.FC = () => {
         questions: filteredQuestions
       };
       
-      // Save template
-      const savedTemplate = interviewService.createTemplate(templateData);
+      const savedTemplate = templateService.createTemplate(templateData);
       
-      // Update UI
       if (showEditModal) {
         setTemplates(prevTemplates => 
           prevTemplates.map(t => t.id === savedTemplate.id ? savedTemplate : t)
@@ -168,7 +160,6 @@ const RoleTemplates: React.FC = () => {
         });
       }
       
-      // Close modal
       setShowAddModal(false);
       setShowEditModal(false);
     } catch (error) {
@@ -185,11 +176,9 @@ const RoleTemplates: React.FC = () => {
     if (!currentTemplate) return;
     
     try {
-      // Filter out the template
       const updatedTemplates = templates.filter(t => t.id !== currentTemplate.id);
       setTemplates(updatedTemplates);
       
-      // Update local storage
       localStorage.setItem('interview_templates', JSON.stringify(updatedTemplates));
       
       toast({
@@ -197,7 +186,6 @@ const RoleTemplates: React.FC = () => {
         description: `"${currentTemplate.name}" has been deleted`
       });
       
-      // Close dialog
       setShowDeleteDialog(false);
       setCurrentTemplate(null);
     } catch (error) {
@@ -315,7 +303,6 @@ const RoleTemplates: React.FC = () => {
         </div>
       )}
       
-      {/* Add/Edit Template Modal */}
       <Dialog 
         open={showAddModal || showEditModal} 
         onOpenChange={(open) => {
@@ -448,7 +435,6 @@ const RoleTemplates: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>

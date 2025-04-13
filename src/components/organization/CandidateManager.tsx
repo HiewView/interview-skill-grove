@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -49,6 +48,8 @@ import {
 import { Link } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { interviewService } from '@/services/interviewService';
+import { templateService } from '@/services/templateService';
+import { candidateService } from '@/services/candidateService';
 import { Badge } from '@/components/ui/badge';
 
 interface Template {
@@ -78,9 +79,8 @@ const CandidateManager: React.FC = () => {
   const [addMethod, setAddMethod] = useState<'bulk' | 'individual'>('individual');
   
   useEffect(() => {
-    // Load templates and candidates
-    const loadedTemplates = interviewService.getTemplates();
-    const loadedCandidates = interviewService.getCandidates();
+    const loadedTemplates = templateService.getTemplates();
+    const loadedCandidates = candidateService.getCandidates();
     setTemplates(loadedTemplates);
     setCandidates(loadedCandidates);
   }, []);
@@ -99,13 +99,11 @@ const CandidateManager: React.FC = () => {
       let emailsToAdd: string[] = [];
       
       if (addMethod === 'bulk') {
-        // Split by commas or newlines
         emailsToAdd = candidateInput
           .split(/[\n,]/)
           .map(email => email.trim())
           .filter(email => email.includes('@'));
       } else {
-        // Single email
         if (candidateInput.includes('@')) {
           emailsToAdd = [candidateInput.trim()];
         }
@@ -120,8 +118,7 @@ const CandidateManager: React.FC = () => {
         return;
       }
       
-      // Add candidates
-      const newCandidates = interviewService.addCandidates(emailsToAdd, selectedTemplate);
+      const newCandidates = candidateService.addCandidates(emailsToAdd, selectedTemplate);
       setCandidates(prev => [...prev, ...newCandidates]);
       
       toast({
@@ -129,7 +126,6 @@ const CandidateManager: React.FC = () => {
         description: `Successfully added ${newCandidates.length} candidate(s)`,
       });
       
-      // Reset and close dialog
       setCandidateInput('');
       setSelectedTemplate('');
       setAddMethod('individual');
@@ -155,13 +151,10 @@ const CandidateManager: React.FC = () => {
     }
     
     try {
-      // Format date to ISO string
       const dateStr = format(selectedDate, "yyyy-MM-dd");
       
-      // Schedule interviews
-      interviewService.scheduleCandidateInterviews(selectedCandidates, dateStr);
+      candidateService.scheduleCandidateInterviews(selectedCandidates, dateStr);
       
-      // Update local state - Using explicit typing to ensure type compatibility
       const updatedCandidates = candidates.map(candidate => {
         if (selectedCandidates.includes(candidate.id)) {
           return {
@@ -180,7 +173,6 @@ const CandidateManager: React.FC = () => {
         description: `Successfully scheduled ${selectedCandidates.length} interview(s)`,
       });
       
-      // Reset and close dialog
       setSelectedCandidates([]);
       setSelectedDate(undefined);
       setShowScheduleDialog(false);
@@ -195,11 +187,9 @@ const CandidateManager: React.FC = () => {
   };
   
   const handleDeleteCandidate = (candidateId: string) => {
-    // Filter out the candidate
     const updatedCandidates = candidates.filter(c => c.id !== candidateId);
     setCandidates(updatedCandidates);
     
-    // Update local storage
     localStorage.setItem('interview_candidates', JSON.stringify(updatedCandidates));
     
     toast({
@@ -221,7 +211,6 @@ const CandidateManager: React.FC = () => {
     return template?.name || "Unknown Template";
   };
   
-  // Group candidates by template for analysis
   const templateCandidateCounts = templates.reduce((acc, template) => {
     const candidatesForTemplate = candidates.filter(c => c.template_id === template.id);
     const completedCount = candidatesForTemplate.filter(c => c.status === 'completed').length;
@@ -266,7 +255,6 @@ const CandidateManager: React.FC = () => {
         </div>
       </div>
       
-      {/* Candidate Analysis Cards */}
       {templateCandidateCounts.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {templateCandidateCounts.map((stats) => (
@@ -324,7 +312,6 @@ const CandidateManager: React.FC = () => {
         </div>
       )}
       
-      {/* Candidate List */}
       {candidates.length > 0 ? (
         <div className="border rounded-md">
           <Table>
@@ -419,7 +406,6 @@ const CandidateManager: React.FC = () => {
         </Card>
       )}
       
-      {/* Add Candidates Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -496,7 +482,6 @@ candidate2@example.com"
         </DialogContent>
       </Dialog>
       
-      {/* Schedule Dialog */}
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
