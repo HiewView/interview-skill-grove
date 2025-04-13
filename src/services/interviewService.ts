@@ -1,116 +1,122 @@
 
-/**
- * Service for communicating with the interview backend API
- */
+import { API_URL, getApiHeaders } from '../utils/apiUtils';
 
-import { StartInterviewParams, SubmitAnswerParams, InterviewResponse } from '../types/interview';
-import { API_URL, getApiHeaders, generateSessionId } from '../utils/apiUtils';
-import { templateService } from './templateService';
-import { candidateService } from './candidateService';
-import { comparisonService } from './comparisonService';
-import { transcriptionService } from './transcriptionService';
+interface StartInterviewParams {
+  session_id: string;
+  name: string;
+  role: string;
+  experience: string;
+  resume_text?: string;
+  organization_id?: string;
+  template_id?: string;
+  use_whisper?: boolean;
+}
+
+interface SubmitAnswerParams {
+  session_id: string;
+  answer: string;
+  question_number?: number;
+  question?: string;
+  is_last_question?: boolean;
+}
 
 export const interviewService = {
   /**
-   * Start a new interview session
+   * Start an interview session
    */
-  async startInterview(params: StartInterviewParams): Promise<InterviewResponse> {
-    try {
-      const headers = getApiHeaders();
-      
-      const response = await fetch(`${API_URL}/start_interview`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(params),
-        credentials: "include"
-      });
-      
-      if (!response.ok) {
-        console.error("Start interview error:", response.status, response.statusText);
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error("Error starting interview:", error);
-      throw error;
+  async startInterview(params: StartInterviewParams) {
+    const response = await fetch(`${API_URL}/start_interview`, {
+      method: "POST",
+      headers: getApiHeaders(),
+      body: JSON.stringify(params)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to start interview: ${errorText}`);
     }
+    
+    return await response.json();
   },
   
   /**
-   * Submit an answer and get the next question
+   * Submit answer to a question
    */
-  async submitAnswer(params: SubmitAnswerParams): Promise<InterviewResponse> {
-    try {
-      const headers = getApiHeaders();
-      
-      const response = await fetch(`${API_URL}/submit_answer`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(params),
-        credentials: "include"
-      });
-      
-      if (!response.ok) {
-        console.error("Submit answer error:", response.status, response.statusText);
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error("Error submitting answer:", error);
-      throw error;
+  async submitAnswer(params: SubmitAnswerParams) {
+    const response = await fetch(`${API_URL}/submit_answer`, {
+      method: "POST",
+      headers: getApiHeaders(),
+      body: JSON.stringify(params)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to submit answer: ${errorText}`);
     }
+    
+    return await response.json();
   },
   
   /**
    * End the interview session
    */
-  async endInterview(sessionId: string): Promise<{ report_id?: string }> {
-    try {
-      const headers = getApiHeaders();
-      
-      // Try ending interview without requiring authorization
-      // this allows users who aren't logged in to still exit gracefully
-      const response = await fetch(`${API_URL}/interview/end_interview`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ session_id: sessionId }),
-        credentials: "include"
-      });
-      
-      if (response.status === 401) {
-        // If unauthorized, we still want to let the user exit
-        console.log("Unauthorized to end interview, but allowing exit");
-        return { report_id: undefined };
-      }
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({
-          error: `Error ${response.status}: ${response.statusText}`
-        }));
-        console.error("End interview error data:", errorData);
-        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error("Error ending interview:", error);
-      // Return empty object instead of throwing, to allow graceful exit
-      return {};
+  async endInterview(sessionId: string) {
+    const response = await fetch(`${API_URL}/end_interview`, {
+      method: "POST",
+      headers: getApiHeaders(),
+      body: JSON.stringify({ session_id: sessionId })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error ending interview:", errorText);
+      throw new Error(`Failed to end interview: ${errorText}`);
     }
+    
+    return await response.json();
   },
-
-  // Re-export methods from other services for backward compatibility
-  getTemplates: templateService.getTemplates,
-  getTemplateById: templateService.getTemplateById,
-  createTemplate: templateService.createTemplate,
-  addCandidates: candidateService.addCandidates,
-  getCandidates: candidateService.getCandidates,
-  scheduleCandidateInterviews: candidateService.scheduleCandidateInterviews,
-  transcribeAudio: transcriptionService.transcribeAudio,
-  compareCandidates: comparisonService.compareCandidates
+  
+  /**
+   * Get template by ID
+   */
+  async getTemplateById(templateId: string) {
+    const response = await fetch(`${API_URL}/templates/${templateId}`, {
+      method: "GET",
+      headers: getApiHeaders()
+    });
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error(`Failed to get template: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.template;
+  },
+  
+  /**
+   * Transcribe audio using the backend API (Whisper)
+   */
+  async transcribeAudio(audioBlob: Blob): Promise<{ transcript: string }> {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+    
+    // Use getApiHeaders but remove Content-Type for FormData
+    const headers = getApiHeaders();
+    delete headers['Content-Type'];
+    
+    const response = await fetch(`${API_URL}/transcribe`, {
+      method: "POST",
+      headers,
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Transcription failed: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
 };
-
-// Re-export for backward compatibility
-export { generateSessionId };

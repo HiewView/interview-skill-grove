@@ -1,7 +1,125 @@
-
 /**
- * Enhanced client-side speech recognition utility
+ * Enhanced client-side speech and recording utilities
  */
+
+// Define audio recording interface
+interface AudioRecorder {
+  start: (silenceCallback?: () => void, silenceThreshold?: number) => AudioRecorder | null;
+  stop: () => Blob | null;
+  abort: () => void;
+  isRecording: boolean;
+}
+
+// Audio recording implementation
+const clientAudioRecording = {
+  /**
+   * Check if audio recording is supported in this browser
+   */
+  isSupported(): boolean {
+    return typeof MediaRecorder !== 'undefined' && navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia;
+  },
+  
+  /**
+   * Create and start an audio recorder
+   */
+  start(silenceCallback?: () => void, silenceThresholdMs: number = 3000): AudioRecorder | null {
+    if (!this.isSupported()) {
+      console.error('MediaRecorder is not supported in this browser');
+      return null;
+    }
+    
+    let mediaRecorder: MediaRecorder | null = null;
+    let audioChunks: Blob[] = [];
+    let isRecording = true;
+    let silenceTimer: number | null = null;
+    
+    // Request microphone access
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        // Create media recorder
+        mediaRecorder = new MediaRecorder(stream);
+        
+        // Set up event handlers
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
+        };
+        
+        // Start recording
+        mediaRecorder.start(1000); // Collect data every second
+        
+        // Set up silence detection timer if callback provided
+        if (silenceCallback) {
+          silenceTimer = window.setTimeout(() => {
+            if (isRecording) {
+              recorder.stop();
+              silenceCallback();
+            }
+          }, silenceThresholdMs);
+        }
+      })
+      .catch(err => {
+        console.error('Error accessing microphone:', err);
+        isRecording = false;
+        return null;
+      });
+    
+    // Create recorder controller
+    const recorder: AudioRecorder = {
+      start: () => recorder, // Already started, just return self
+      
+      stop: () => {
+        // Clear silence timer if set
+        if (silenceTimer) {
+          window.clearTimeout(silenceTimer);
+          silenceTimer = null;
+        }
+        
+        // Stop recording if mediaRecorder exists and is recording
+        if (mediaRecorder && (mediaRecorder.state === 'recording')) {
+          mediaRecorder.stop();
+          
+          // Wait for all data to be collected
+          return new Blob(audioChunks, { type: 'audio/webm' });
+        }
+        
+        return null;
+      },
+      
+      abort: () => {
+        // Clear silence timer if set
+        if (silenceTimer) {
+          window.clearTimeout(silenceTimer);
+          silenceTimer = null;
+        }
+        
+        // Stop streams
+        if (mediaRecorder) {
+          try {
+            if (mediaRecorder.state === 'recording') {
+              mediaRecorder.stop();
+            }
+            
+            // Stop all tracks
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+          } catch (e) {
+            console.error('Error aborting recording:', e);
+          }
+        }
+        
+        isRecording = false;
+        audioChunks = [];
+      },
+      
+      get isRecording() {
+        return isRecording;
+      }
+    };
+    
+    return recorder;
+  }
+};
 
 // Speech recognition interface
 interface SpeechRecognitionResult {
@@ -23,7 +141,7 @@ interface SpeechRecognitionController {
   isListening: boolean;
 }
 
-// Define our speech recognition utility
+// Define our speech recognition utility (keeping for compatibility)
 export const clientSpeechRecognition = {
   /**
    * Check if speech recognition is supported
@@ -234,6 +352,7 @@ const speak = (text: string, voice: SpeechSynthesisVoice | null, options: { rate
 // Export speech utils
 export const clientSpeechUtils = {
   recognition: clientSpeechRecognition,
+  recording: clientAudioRecording,
   getVoices,
   getVoiceByLang,
   speak,

@@ -94,7 +94,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({ sessionId, temp
       setIsListening(true);
       toast({
         title: "Listening",
-        description: "Speak your answer. Using Whisper for speech recognition.",
+        description: "Speak your answer. Recording will stop after a pause in speech.",
       });
     }
   };

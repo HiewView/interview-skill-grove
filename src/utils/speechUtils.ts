@@ -6,59 +6,48 @@
 import { clientSpeechUtils } from './clientSpeechUtils';
 import { transcriptionService } from '../services/transcriptionService';
 
-// Add proper TypeScript declarations for the Web Speech API
-declare global {
-  interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
-  }
-}
-
-// Define the wrapper for the SpeechRecognition API
-interface SpeechRecognitionWrapper {
-  isSupported: () => boolean;
+// Speech recognition implementation that uses Whisper API
+// We'll use the browser's MediaRecorder API to record audio and send it to Whisper
+const recognition = {
+  isSupported: () => {
+    // Check if MediaRecorder is supported in this browser
+    return typeof MediaRecorder !== 'undefined';
+  },
+  
   start: (
     onResult: (transcript: string, isFinal: boolean) => void,
     onSilence: () => void
-  ) => { stop: () => void; abort: () => void };
-}
-
-// Speech recognition implementation
-const recognition: SpeechRecognitionWrapper = {
-  isSupported: () => {
-    return clientSpeechUtils.recognition.isSupported();
-  },
-  
-  start: (onResult, onSilence) => {
-    // Use client-side speech recognition
-    const recognizer = clientSpeechUtils.recognition.create(
-      // On result
-      (result) => {
-        onResult(result.transcript, result.isFinal);
-      },
-      // On silence
-      onSilence,
-      // On error
-      (error) => {
-        console.error('Speech recognition error:', error);
-      }
-    );
+  ) => {
+    // We're just delegating to the client utils for recording
+    // The actual transcription will be handled by the transcriptionService
+    const recorder = clientSpeechUtils.recording.start(onSilence);
     
-    // If recognizer is not available, fallback to a simple implementation
-    if (!recognizer) {
+    if (!recorder) {
+      console.error('Failed to start recording');
       return {
         stop: () => {},
         abort: () => {}
       };
     }
     
-    // Start recognition
-    recognizer.start();
-    
-    // Return control methods
     return {
-      stop: () => recognizer.stop(),
-      abort: () => recognizer.abort()
+      stop: () => {
+        const audioBlob = recorder.stop();
+        if (audioBlob) {
+          // Process the audio blob with Whisper
+          transcriptionService.transcribeAudio(audioBlob)
+            .then(result => {
+              if (result.transcript) {
+                onResult(result.transcript, true);
+              }
+            })
+            .catch(error => {
+              console.error('Error transcribing audio:', error);
+              onResult('', true); // Empty transcript on error
+            });
+        }
+      },
+      abort: () => recorder.abort()
     };
   }
 };
