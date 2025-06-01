@@ -1,20 +1,20 @@
 
 import React from 'react';
-import { User, Building, Calendar, BarChart, Settings, Bell, LogOut } from 'lucide-react';
+import { User, Building, Calendar, BarChart, Settings, Bell, LogOut, Play, Clock, Target } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   // TODO: Get user type from authentication context
   const userType = 'candidate'; // This will come from auth context
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-black">
       {/* Navigation Header */}
-      <nav className="bg-white/10 backdrop-blur-md border-b border-white/20">
+      <nav className="bg-gray-900 border-b border-yellow-500/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+                <User className="w-5 h-5 text-black" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white">
@@ -25,13 +25,13 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-white/60 hover:text-white transition-colors">
+              <button className="p-2 text-white/60 hover:text-yellow-500 transition-colors">
                 <Bell className="w-5 h-5" />
               </button>
-              <button className="p-2 text-white/60 hover:text-white transition-colors">
+              <button className="p-2 text-white/60 hover:text-yellow-500 transition-colors">
                 <Settings className="w-5 h-5" />
               </button>
-              <button className="p-2 text-white/60 hover:text-white transition-colors">
+              <button className="p-2 text-white/60 hover:text-yellow-500 transition-colors">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
@@ -54,28 +54,28 @@ const CandidateDashboard: React.FC = () => {
         <ActionCard
           title="Start Interview"
           description="Begin a new AI-powered interview session"
-          icon={User}
-          gradient="from-purple-500 to-pink-500"
+          icon={Play}
+          bgColor="bg-yellow-500"
           onClick={() => console.log('Start Interview')}
         />
         <ActionCard
           title="View Reports"
           description="Check your past interview performance"
           icon={BarChart}
-          gradient="from-blue-500 to-cyan-500"
+          bgColor="bg-yellow-500"
           onClick={() => console.log('View Reports')}
         />
         <ActionCard
           title="Schedule Interview"
           description="Book an interview session for later"
           icon={Calendar}
-          gradient="from-green-500 to-emerald-500"
+          bgColor="bg-yellow-500"
           onClick={() => console.log('Schedule Interview')}
         />
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
+      <div className="bg-gray-900 rounded-2xl p-6 border border-yellow-500/30">
         <h2 className="text-2xl font-bold text-white mb-6">Recent Activity</h2>
         <div className="space-y-4">
           <ActivityItem
@@ -108,28 +108,28 @@ const OrganizationDashboard: React.FC = () => {
           title="Add Candidates"
           description="Register new candidates for interviews"
           icon={User}
-          gradient="from-purple-500 to-pink-500"
+          bgColor="bg-yellow-500"
           onClick={() => console.log('Add Candidates')}
         />
         <ActionCard
           title="View Reports"
           description="Analyze candidate performance"
           icon={BarChart}
-          gradient="from-blue-500 to-cyan-500"
+          bgColor="bg-yellow-500"
           onClick={() => console.log('View Reports')}
         />
         <ActionCard
           title="Manage Templates"
           description="Create and edit interview templates"
           icon={Settings}
-          gradient="from-green-500 to-emerald-500"
+          bgColor="bg-yellow-500"
           onClick={() => console.log('Manage Templates')}
         />
         <ActionCard
           title="Schedule Interviews"
           description="Book interview sessions"
           icon={Calendar}
-          gradient="from-orange-500 to-red-500"
+          bgColor="bg-yellow-500"
           onClick={() => console.log('Schedule Interviews')}
         />
       </div>
@@ -142,7 +142,7 @@ const OrganizationDashboard: React.FC = () => {
       </div>
 
       {/* Recent Interviews */}
-      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
+      <div className="bg-gray-900 rounded-2xl p-6 border border-yellow-500/30">
         <h2 className="text-2xl font-bold text-white mb-6">Recent Interviews</h2>
         <div className="space-y-4">
           <InterviewItem
@@ -176,18 +176,18 @@ interface ActionCardProps {
   title: string;
   description: string;
   icon: React.ElementType;
-  gradient: string;
+  bgColor: string;
   onClick: () => void;
 }
 
-const ActionCard: React.FC<ActionCardProps> = ({ title, description, icon: Icon, gradient, onClick }) => {
+const ActionCard: React.FC<ActionCardProps> = ({ title, description, icon: Icon, bgColor, onClick }) => {
   return (
     <button
       onClick={onClick}
-      className="group p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105 text-left w-full"
+      className="group p-6 rounded-2xl bg-gray-900 border border-yellow-500/30 hover:border-yellow-500/50 transition-all duration-300 text-left w-full"
     >
-      <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-        <Icon className="w-6 h-6 text-white" />
+      <div className={`w-12 h-12 rounded-xl ${bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+        <Icon className="w-6 h-6 text-black" />
       </div>
       <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
       <p className="text-white/70 text-sm">{description}</p>
@@ -203,13 +203,13 @@ interface ActivityItemProps {
 
 const ActivityItem: React.FC<ActivityItemProps> = ({ title, description, score }) => {
   return (
-    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+    <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-white/10">
       <div>
         <h4 className="text-white font-medium">{title}</h4>
         <p className="text-white/60 text-sm">{description}</p>
       </div>
       <div className="text-right">
-        <div className="text-lg font-bold text-white">{score}%</div>
+        <div className="text-lg font-bold text-yellow-500">{score}%</div>
         <div className="text-xs text-white/60">Score</div>
       </div>
     </div>
@@ -224,10 +224,10 @@ interface StatCardProps {
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, change }) => {
   return (
-    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+    <div className="bg-gray-900 rounded-xl p-6 border border-yellow-500/30">
       <h3 className="text-white/80 text-sm font-medium mb-2">{title}</h3>
       <div className="text-3xl font-bold text-white mb-1">{value}</div>
-      <div className="text-green-400 text-sm">{change}</div>
+      <div className="text-yellow-500 text-sm">{change}</div>
     </div>
   );
 };
@@ -242,10 +242,10 @@ interface InterviewItemProps {
 
 const InterviewItem: React.FC<InterviewItemProps> = ({ candidate, role, date, score, status }) => {
   return (
-    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+    <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-white/10">
       <div className="flex items-center space-x-4">
-        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-          <User className="w-5 h-5 text-white" />
+        <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+          <User className="w-5 h-5 text-black" />
         </div>
         <div>
           <h4 className="text-white font-medium">{candidate}</h4>
@@ -254,11 +254,11 @@ const InterviewItem: React.FC<InterviewItemProps> = ({ candidate, role, date, sc
       </div>
       <div className="text-right">
         {score !== null && (
-          <div className="text-lg font-bold text-white">{score}%</div>
+          <div className="text-lg font-bold text-yellow-500">{score}%</div>
         )}
         <div className={`text-xs px-2 py-1 rounded-full ${
           status === 'Completed' ? 'bg-green-500/20 text-green-400' : 
-          status === 'Active' ? 'bg-blue-500/20 text-blue-400' : 
+          status === 'Active' ? 'bg-yellow-500/20 text-yellow-400' : 
           'bg-gray-500/20 text-gray-400'
         }`}>
           {status}

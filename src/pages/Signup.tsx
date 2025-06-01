@@ -64,26 +64,26 @@ const Signup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Back to Home */}
         <Link 
           to="/"
-          className="inline-flex items-center space-x-2 text-white/80 hover:text-white transition-colors mb-8"
+          className="inline-flex items-center space-x-2 text-white/80 hover:text-yellow-500 transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Home</span>
         </Link>
 
         {/* Signup Card */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
+        <div className="bg-gray-900 rounded-2xl p-8 border border-yellow-500/30">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center space-x-2 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                <Brain className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                <Brain className="w-6 h-6 text-black" />
               </div>
-              <span className="text-2xl font-bold text-white">HireView</span>
+              <span className="text-2xl font-bold text-yellow-500">HireView</span>
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
             <p className="text-white/70">Join thousands of professionals using HireView</p>
@@ -96,8 +96,8 @@ const Signup: React.FC = () => {
               onClick={() => setUserType('candidate')}
               className={`p-4 rounded-lg border transition-all ${
                 userType === 'candidate'
-                  ? 'bg-purple-500/20 border-purple-500 text-white'
-                  : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
+                  ? 'bg-yellow-500/20 border-yellow-500 text-white'
+                  : 'bg-black border-white/20 text-white/70 hover:bg-white/5'
               }`}
             >
               <User className="w-6 h-6 mx-auto mb-2" />
@@ -108,8 +108,8 @@ const Signup: React.FC = () => {
               onClick={() => setUserType('organization')}
               className={`p-4 rounded-lg border transition-all ${
                 userType === 'organization'
-                  ? 'bg-purple-500/20 border-purple-500 text-white'
-                  : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
+                  ? 'bg-yellow-500/20 border-yellow-500 text-white'
+                  : 'bg-black border-white/20 text-white/70 hover:bg-white/5'
               }`}
             >
               <Building className="w-6 h-6 mx-auto mb-2" />
@@ -137,7 +137,7 @@ const Signup: React.FC = () => {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                 placeholder="Enter your name"
               />
             </div>
@@ -154,7 +154,7 @@ const Signup: React.FC = () => {
                   value={formData.organizationName}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                   placeholder="Enter organization name"
                 />
               </div>
@@ -171,7 +171,7 @@ const Signup: React.FC = () => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                 placeholder="Enter your email"
               />
             </div>
@@ -188,7 +188,7 @@ const Signup: React.FC = () => {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all pr-12"
+                  className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all pr-12"
                   placeholder="Create a password"
                 />
                 <button
@@ -213,7 +213,7 @@ const Signup: React.FC = () => {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all pr-12"
+                  className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all pr-12"
                   placeholder="Confirm your password"
                 />
                 <button
@@ -233,15 +233,15 @@ const Signup: React.FC = () => {
                 name="termsAccepted"
                 checked={formData.termsAccepted}
                 onChange={handleChange}
-                className="w-4 h-4 text-purple-500 bg-white/5 border-white/20 rounded focus:ring-purple-500 focus:ring-2 mt-1"
+                className="w-4 h-4 text-yellow-500 bg-black border-white/20 rounded focus:ring-yellow-500 focus:ring-2 mt-1"
               />
               <label htmlFor="termsAccepted" className="text-sm text-white/70">
                 I agree to the{' '}
-                <Link to="/terms" className="text-purple-400 hover:text-purple-300 transition-colors">
+                <Link to="/terms" className="text-yellow-500 hover:text-yellow-400 transition-colors">
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link to="/privacy" className="text-purple-400 hover:text-purple-300 transition-colors">
+                <Link to="/privacy" className="text-yellow-500 hover:text-yellow-400 transition-colors">
                   Privacy Policy
                 </Link>
               </label>
@@ -250,11 +250,11 @@ const Signup: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full bg-yellow-500 text-black py-3 rounded-lg font-semibold hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
                   <span>Creating account...</span>
                 </div>
               ) : (
@@ -267,7 +267,7 @@ const Signup: React.FC = () => {
           <div className="mt-8 text-center">
             <p className="text-white/70">
               Already have an account?{' '}
-              <Link to="/login" className="text-purple-400 hover:text-purple-300 transition-colors font-medium">
+              <Link to="/login" className="text-yellow-500 hover:text-yellow-400 transition-colors font-medium">
                 Sign in
               </Link>
             </p>

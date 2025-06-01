@@ -1,136 +1,61 @@
 
 import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
-import { authService } from '../services/authService';
-import { Button } from './ui/button';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+import { Link, useNavigate } from 'react-router-dom';
+import { Brain, User, LogOut } from 'lucide-react';
 
 const NavBar: React.FC = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const isAuthenticated = authService.isAuthenticated();
-  const currentUser = authService.getCurrentUser();
-  
-  const handleSignOut = () => {
-    authService.signOut();
-  };
-  
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
+  const isAuthenticated = false; // TODO: Replace with actual auth state
+
+  const handleLogout = () => {
+    // TODO: Implement logout logic
+    navigate('/');
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50 border-b border-border">
-      <div className="max-w-[1200px] mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-6 w-6"
-              >
-                <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
-                <path d="m3 9 2.45-4.9A2 2 0 0 1 7.24 3h9.52a2 2 0 0 1 1.8 1.1L21 9" />
-                <path d="M12 3v6" />
-              </svg>
-              <span className="font-bold text-lg">InterviewAI</span>
-            </Link>
+    <nav className="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md border-b border-yellow-500/30">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center py-4">
+          <Link to="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+              <Brain className="w-5 h-5 text-black" />
+            </div>
+            <span className="text-xl font-bold text-yellow-500">HireView</span>
+          </Link>
+          
+          <div className="hidden md:flex items-center space-x-8">
+            <Link to="/features" className="text-white/80 hover:text-yellow-500 transition-colors">Features</Link>
+            <Link to="/about" className="text-white/80 hover:text-yellow-500 transition-colors">About</Link>
+            <Link to="/contact" className="text-white/80 hover:text-yellow-500 transition-colors">Contact</Link>
           </div>
-
-          <div className="flex items-center gap-4">
+          
+          <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                {currentUser?.user_type === 'org_admin' ? (
-                  <Link 
-                    to="/organization"
-                    className={`text-sm font-medium transition-colors hover:text-primary ${
-                      location.pathname === '/organization' ? 'text-primary' : 'text-muted-foreground'
-                    }`}
-                  >
-                    Organization
-                  </Link>
-                ) : (
-                  <Link 
-                    to="/dashboard"
-                    className={`text-sm font-medium transition-colors hover:text-primary ${
-                      location.pathname === '/dashboard' ? 'text-primary' : 'text-muted-foreground'
-                    }`}
-                  >
-                    Dashboard
-                  </Link>
-                )}
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          {currentUser?.name ? getInitials(currentUser.name) : 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="bg-background border border-border" align="end">
-                    <DropdownMenuLabel>
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">{currentUser?.email}</p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-                      Dashboard
-                    </DropdownMenuItem>
-                    {currentUser?.user_type === 'org_admin' && (
-                      <DropdownMenuItem onClick={() => navigate('/organization')}>
-                        Organization
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={handleSignOut}>
-                      Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Link to="/dashboard" className="text-white/80 hover:text-yellow-500 transition-colors">
+                  <User className="w-5 h-5" />
+                </Link>
+                <button 
+                  onClick={handleLogout}
+                  className="text-white/80 hover:text-yellow-500 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
               </>
             ) : (
               <>
-                <Link 
-                  to="/signin"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                >
-                  Sign in
+                <Link to="/login" className="text-white/80 hover:text-yellow-500 transition-colors">
+                  Login
                 </Link>
-                <Link to="/register">
-                  <Button variant="default" size="sm">
-                    Register
-                  </Button>
+                <Link to="/signup" className="bg-yellow-500 text-black px-6 py-2 rounded-lg hover:bg-yellow-400 transition-colors font-medium">
+                  Get Started
                 </Link>
               </>
             )}
           </div>
         </div>
       </div>
-    </header>
+    </nav>
   );
 };
 

@@ -1,465 +1,179 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { 
-  PlusCircle, 
-  Edit, 
-  Trash2, 
-  MoreVertical, 
-  Code, 
-  Users, 
-  Copy
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle,
-  DialogTrigger 
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { toast } from '@/hooks/use-toast';
-import { templateService } from '@/services/templateService';
+
+import React, { useState } from 'react';
+import { Plus, Edit, Trash2, Code, Users, Briefcase, Settings } from 'lucide-react';
+
+interface RoleTemplate {
+  id: string;
+  name: string;
+  description: string;
+  skills: string[];
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  duration: number;
+  questionTypes: string[];
+  candidateCount: number;
+}
 
 const RoleTemplates: React.FC = () => {
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [currentTemplate, setCurrentTemplate] = useState<any>(null);
-  const [formState, setFormState] = useState({
-    name: '',
-    role: '',
-    description: '',
-    rules: '',
-    jobDescription: '',
-    questions: ['', '', '']
-  });
-
-  useEffect(() => {
-    const loadedTemplates = templateService.getTemplates();
-    setTemplates(loadedTemplates);
-  }, []);
-
-  useEffect(() => {
-    if (!showAddModal && !showEditModal) {
-      setFormState({
-        name: '',
-        role: '',
-        description: '',
-        rules: '',
-        jobDescription: '',
-        questions: ['', '', '']
-      });
+  const [templates] = useState<RoleTemplate[]>([
+    {
+      id: '1',
+      name: 'Frontend Developer',
+      description: 'Interview template for frontend development positions focusing on React, JavaScript, and UI/UX skills.',
+      skills: ['React', 'JavaScript', 'CSS', 'HTML', 'TypeScript'],
+      difficulty: 'intermediate',
+      duration: 45,
+      questionTypes: ['Technical', 'Coding', 'Behavioral'],
+      candidateCount: 12
+    },
+    {
+      id: '2',
+      name: 'Backend Developer',
+      description: 'Comprehensive backend interview covering APIs, databases, and system design.',
+      skills: ['Node.js', 'Python', 'SQL', 'REST APIs', 'System Design'],
+      difficulty: 'advanced',
+      duration: 60,
+      questionTypes: ['Technical', 'System Design', 'Coding'],
+      candidateCount: 8
+    },
+    {
+      id: '3',
+      name: 'Junior Developer',
+      description: 'Entry-level position interview focusing on fundamentals and learning ability.',
+      skills: ['Programming Basics', 'Problem Solving', 'Communication'],
+      difficulty: 'beginner',
+      duration: 30,
+      questionTypes: ['Technical', 'Behavioral'],
+      candidateCount: 15
     }
-  }, [showAddModal, showEditModal]);
+  ]);
 
-  useEffect(() => {
-    if (currentTemplate && showEditModal) {
-      setFormState({
-        name: currentTemplate.name || '',
-        role: currentTemplate.role || '',
-        description: currentTemplate.description || '',
-        rules: currentTemplate.rules || '',
-        jobDescription: currentTemplate.job_description || '',
-        questions: currentTemplate.questions || ['', '', '']
-      });
-    }
-  }, [currentTemplate, showEditModal]);
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormState(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleQuestionChange = (index: number, value: string) => {
-    const newQuestions = [...formState.questions];
-    newQuestions[index] = value;
-    setFormState(prev => ({
-      ...prev,
-      questions: newQuestions
-    }));
-  };
-
-  const addQuestion = () => {
-    setFormState(prev => ({
-      ...prev,
-      questions: [...prev.questions, '']
-    }));
-  };
-
-  const removeQuestion = (index: number) => {
-    if (formState.questions.length > 1) {
-      const newQuestions = formState.questions.filter((_, i) => i !== index);
-      setFormState(prev => ({
-        ...prev,
-        questions: newQuestions
-      }));
-    }
-  };
-
-  const handleSubmit = () => {
-    if (!formState.name || !formState.role) {
-      toast({
-        title: 'Validation Error',
-        description: 'Template name and role are required',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    try {
-      const filteredQuestions = formState.questions.filter(q => q.trim() !== '');
-      
-      if (filteredQuestions.length === 0) {
-        toast({
-          title: 'Validation Error',
-          description: 'At least one interview question is required',
-          variant: 'destructive'
-        });
-        return;
-      }
-      
-      const templateData = {
-        id: currentTemplate?.id,
-        name: formState.name,
-        role: formState.role,
-        description: formState.description,
-        rules: formState.rules,
-        job_description: formState.jobDescription,
-        questions: filteredQuestions
-      };
-      
-      const savedTemplate = templateService.createTemplate(templateData);
-      
-      if (showEditModal) {
-        setTemplates(prevTemplates => 
-          prevTemplates.map(t => t.id === savedTemplate.id ? savedTemplate : t)
-        );
-        toast({
-          title: 'Template Updated',
-          description: `"${savedTemplate.name}" has been updated successfully`
-        });
-      } else {
-        setTemplates(prevTemplates => [...prevTemplates, savedTemplate]);
-        toast({
-          title: 'Template Created',
-          description: `"${savedTemplate.name}" has been created successfully`
-        });
-      }
-      
-      setShowAddModal(false);
-      setShowEditModal(false);
-    } catch (error) {
-      console.error('Error saving template:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save the template. Please try again.',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleDelete = () => {
-    if (!currentTemplate) return;
-    
-    try {
-      const updatedTemplates = templates.filter(t => t.id !== currentTemplate.id);
-      setTemplates(updatedTemplates);
-      
-      localStorage.setItem('interview_templates', JSON.stringify(updatedTemplates));
-      
-      toast({
-        title: 'Template Deleted',
-        description: `"${currentTemplate.name}" has been deleted`
-      });
-      
-      setShowDeleteDialog(false);
-      setCurrentTemplate(null);
-    } catch (error) {
-      console.error('Error deleting template:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete the template',
-        variant: 'destructive'
-      });
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'intermediate': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'advanced': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Interview Templates</h2>
-        <Button onClick={() => setShowAddModal(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Template
-        </Button>
-      </div>
-      
-      {templates.length === 0 ? (
-        <Card className="border-dashed border-2 bg-muted/50">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="rounded-full bg-primary/10 p-3 mb-4">
-              <Code className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">No Templates Yet</h3>
-            <p className="text-sm text-foreground/70 text-center max-w-md mb-4">
-              Create your first interview template to start conducting AI-powered interviews for your organization.
-            </p>
-            <Button onClick={() => setShowAddModal(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Template
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map(template => (
-            <Card key={template.id} className="overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle>{template.name}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {template.role}
-                    </CardDescription>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setCurrentTemplate(template);
-                          setShowEditModal(true);
-                        }}
-                      >
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          const duplicatedTemplate = {
-                            ...template,
-                            id: undefined,
-                            name: `Copy of ${template.name}`
-                          };
-                          setCurrentTemplate(duplicatedTemplate);
-                          setShowEditModal(true);
-                        }}
-                      >
-                        <Copy className="mr-2 h-4 w-4" />
-                        Duplicate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => {
-                          setCurrentTemplate(template);
-                          setShowDeleteDialog(true);
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent className="pb-3">
-                <p className="text-sm text-muted-foreground line-clamp-3">
-                  {template.description || "No description provided."}
-                </p>
-              </CardContent>
-              <CardFooter className="border-t pt-3 flex justify-between">
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Users className="mr-1 h-4 w-4" />
-                  {template.questions?.length || 0} questions
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => window.open(`/interview?template_id=${template.id}`, '_blank')}
-                >
-                  Start Interview
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+    <div className="p-6 bg-black min-h-screen">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-yellow-500 mb-2">Role Templates</h1>
+            <p className="text-white/60">Create and manage interview templates for different roles</p>
+          </div>
+          <button className="bg-yellow-500 text-black px-6 py-3 rounded-lg font-medium hover:bg-yellow-400 transition-colors flex items-center space-x-2">
+            <Plus className="w-5 h-5" />
+            <span>Create Template</span>
+          </button>
         </div>
-      )}
-      
-      <Dialog 
-        open={showAddModal || showEditModal} 
-        onOpenChange={(open) => {
-          if (!open) {
-            setShowAddModal(false);
-            setShowEditModal(false);
-            setCurrentTemplate(null);
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{showEditModal ? 'Edit Template' : 'Create Interview Template'}</DialogTitle>
-            <DialogDescription>
-              {showEditModal 
-                ? 'Make changes to your interview template' 
-                : 'Configure a new interview template for your organization'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-6 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Template Name</Label>
-                <Input 
-                  id="name" 
-                  value={formState.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Technical Interview"
-                />
+
+        {/* Templates Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {templates.map((template) => (
+            <div key={template.id} className="bg-gray-900 rounded-lg p-6 border border-yellow-500/30 hover:border-yellow-500/50 transition-colors">
+              {/* Header */}
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
+                    <Briefcase className="w-6 h-6 text-black" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold text-lg">{template.name}</h3>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDifficultyColor(template.difficulty)}`}>
+                      {template.difficulty}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex space-x-1">
+                  <button className="p-2 text-white/60 hover:text-yellow-500 transition-colors">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button className="p-2 text-white/60 hover:text-red-400 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Input 
-                  id="role" 
-                  value={formState.role}
-                  onChange={(e) => handleInputChange('role', e.target.value)}
-                  placeholder="Software Engineer"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description"
-                value={formState.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Brief description of this interview template"
-                rows={2}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="job-description">Job Description</Label>
-              <Textarea 
-                id="job-description"
-                value={formState.jobDescription}
-                onChange={(e) => handleInputChange('jobDescription', e.target.value)}
-                placeholder="Detailed job description for candidate evaluation"
-                rows={4}
-              />
-              <p className="text-sm text-muted-foreground">
-                This will be used to evaluate candidate fit after interviews
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="rules">Interview Rules & Instructions</Label>
-              <Textarea 
-                id="rules"
-                value={formState.rules}
-                onChange={(e) => handleInputChange('rules', e.target.value)}
-                placeholder="Guidelines for the AI interviewer to follow"
-                rows={3}
-              />
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label>Interview Questions</Label>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={addQuestion}
-                >
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Add Question
-                </Button>
-              </div>
-              
-              {formState.questions.map((question, index) => (
-                <div key={index} className="flex gap-2">
-                  <Textarea 
-                    value={question}
-                    onChange={(e) => handleQuestionChange(index, e.target.value)}
-                    placeholder={`Question ${index + 1}`}
-                    className="flex-1"
-                  />
-                  {formState.questions.length > 1 && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => removeQuestion(index)}
-                      className="flex-shrink-0 self-start"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+
+              {/* Description */}
+              <p className="text-white/70 text-sm mb-4 line-clamp-3">{template.description}</p>
+
+              {/* Skills */}
+              <div className="mb-4">
+                <h4 className="text-white/80 text-sm font-medium mb-2">Required Skills</h4>
+                <div className="flex flex-wrap gap-2">
+                  {template.skills.slice(0, 3).map((skill, index) => (
+                    <span key={index} className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-xs border border-yellow-500/30">
+                      {skill}
+                    </span>
+                  ))}
+                  {template.skills.length > 3 && (
+                    <span className="px-2 py-1 bg-white/10 text-white/60 rounded text-xs">
+                      +{template.skills.length - 3} more
+                    </span>
                   )}
                 </div>
-              ))}
+              </div>
+
+              {/* Question Types */}
+              <div className="mb-4">
+                <h4 className="text-white/80 text-sm font-medium mb-2">Question Types</h4>
+                <div className="flex flex-wrap gap-2">
+                  {template.questionTypes.map((type, index) => (
+                    <span key={index} className="px-2 py-1 bg-white/10 text-white/80 rounded text-xs border border-white/20">
+                      {type}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="text-center">
+                  <div className="text-yellow-500 font-semibold text-lg">{template.duration}m</div>
+                  <div className="text-white/60 text-xs">Duration</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-yellow-500 font-semibold text-lg">{template.candidateCount}</div>
+                  <div className="text-white/60 text-xs">Candidates</div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex space-x-2">
+                <button className="flex-1 bg-yellow-500 text-black py-2 px-3 rounded-lg hover:bg-yellow-400 transition-colors flex items-center justify-center space-x-1">
+                  <Users className="w-4 h-4" />
+                  <span className="text-sm">Assign</span>
+                </button>
+                <button className="flex-1 bg-white/10 text-white py-2 px-3 rounded-lg hover:bg-white/20 transition-colors flex items-center justify-center space-x-1">
+                  <Settings className="w-4 h-4" />
+                  <span className="text-sm">Configure</span>
+                </button>
+                <button className="bg-white/10 text-white py-2 px-3 rounded-lg hover:bg-white/20 transition-colors">
+                  <Code className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {templates.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Briefcase className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-white text-lg font-medium mb-2">No templates found</h3>
+            <p className="text-white/60 mb-4">Create your first role template to get started</p>
+            <button className="bg-yellow-500 text-black px-6 py-2 rounded-lg hover:bg-yellow-400 transition-colors">
+              Create Template
+            </button>
           </div>
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowAddModal(false);
-                setShowEditModal(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit}>
-              {showEditModal ? 'Update Template' : 'Create Template'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Template</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete "{currentTemplate?.name}"? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <DialogFooter className="mt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowDeleteDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleDelete}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
     </div>
   );
 };
