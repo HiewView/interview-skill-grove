@@ -1,211 +1,267 @@
 
-import React, { useState, useEffect } from 'react';
-import { Calendar, PieChart, Clock, Award, ChevronRight, Plus } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { reportService, Report } from '../services/reportService';
-import { toast } from "../hooks/use-toast";
-import { getApiHeaders, isAuthenticated } from "../utils/apiUtils";
+import React from 'react';
+import { User, Building, Calendar, BarChart, Settings, Bell, LogOut } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
-  const [reports, setReports] = useState<Report[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Check if user is authenticated
-        if (!isAuthenticated()) {
-          // Redirect to login if not authenticated
-          window.location.href = '/signin';
-          return;
-        }
-        
-        // Fetch reports from API
-        const fetchedReports = await reportService.getReports();
-        setReports(fetchedReports);
-      } catch (error) {
-        console.error("Failed to fetch reports:", error);
-        setError("Failed to load your interview reports");
-        toast({
-          title: "Error",
-          description: "Failed to load your interview reports. Please try again later.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchReports();
-  }, []);
-
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-green-500';
-    if (score >= 75) return 'text-blue-500';
-    return 'text-yellow-500';
-  };
-
-  // If not authenticated, we'll redirect in the useEffect
-  if (!isAuthenticated()) {
-    return (
-      <div className="page-transition pt-24 pb-16">
-        <div className="page-container text-center">
-          <p>Redirecting to login...</p>
-        </div>
-      </div>
-    );
-  }
+  // TODO: Get user type from authentication context
+  const userType = 'candidate'; // This will come from auth context
 
   return (
-    <div className="page-transition pt-24 pb-16">
-      <div className="page-container">
-        <div className="mb-8">
-          <h1 className="text-3xl font-medium mb-2">Welcome, Candidate</h1>
-          <p className="text-foreground/70">
-            Track your progress and start new interview sessions
-          </p>
-        </div>
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="glass-card flex items-center">
-            <div className="rounded-full p-3 bg-primary/10 text-primary mr-4">
-              <Award size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-foreground/70">Average Score</p>
-              <p className="text-2xl font-medium">
-                {reports.length > 0 ? 
-                  Math.round(reports.reduce((sum, report) => sum + report.overall_score, 0) / reports.length) : 0}%
-              </p>
-            </div>
-          </div>
-          
-          <div className="glass-card flex items-center">
-            <div className="rounded-full p-3 bg-primary/10 text-primary mr-4">
-              <Calendar size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-foreground/70">Total Interviews</p>
-              <p className="text-2xl font-medium">{reports.length}</p>
-            </div>
-          </div>
-          
-          <div className="glass-card flex items-center">
-            <div className="rounded-full p-3 bg-primary/10 text-primary mr-4">
-              <Clock size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-foreground/70">Practice Time</p>
-              <p className="text-2xl font-medium">
-                {reports.length * 30} min
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          <Link 
-            to="/interview" 
-            className="glass-card hover:shadow-glass-lg transition-all hover:-translate-y-1 group"
-          >
-            <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Navigation Header */}
+      <nav className="bg-white/10 backdrop-blur-md border-b border-white/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
               <div>
-                <h3 className="text-xl font-medium mb-2">Start New Interview</h3>
-                <p className="text-foreground/70">
-                  Begin a new AI-powered interview session
-                </p>
-              </div>
-              <div className="rounded-full p-4 bg-primary text-white group-hover:bg-primary/90 transition-colors">
-                <Plus size={24} />
+                <h1 className="text-xl font-bold text-white">
+                  {userType === 'candidate' ? 'Candidate Dashboard' : 'Organization Dashboard'}
+                </h1>
+                <p className="text-white/60 text-sm">Welcome back, John Doe</p>
               </div>
             </div>
-          </Link>
-          
-          <Link 
-            to={reports.length > 0 ? `/report/${reports[0]._id}` : "/dashboard"} 
-            className={`glass-card transition-all ${reports.length > 0 ? 'hover:shadow-glass-lg hover:-translate-y-1' : ''} group`}
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-medium mb-2">Latest Report</h3>
-                <p className="text-foreground/70">
-                  {reports.length > 0 
-                    ? `View your ${formatDate(reports[0].date)} interview results`
-                    : "Complete an interview to generate a report"}
-                </p>
-              </div>
-              <div className={`rounded-full p-4 ${reports.length > 0 ? 'bg-primary text-white group-hover:bg-primary/90' : 'bg-muted text-muted-foreground'} transition-colors`}>
-                <PieChart size={24} />
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* Interview Reports */}
-        <div>
-          <h2 className="text-2xl font-medium mb-6">Interview Reports</h2>
-          
-          {isLoading ? (
-            <div className="glass-card text-center p-8">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-4">Loading reports...</p>
-            </div>
-          ) : error ? (
-            <div className="glass-card text-center py-8">
-              <p className="text-destructive">{error}</p>
-              <button 
-                onClick={() => window.location.reload()} 
-                className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-              >
-                Try Again
+            
+            <div className="flex items-center space-x-4">
+              <button className="p-2 text-white/60 hover:text-white transition-colors">
+                <Bell className="w-5 h-5" />
+              </button>
+              <button className="p-2 text-white/60 hover:text-white transition-colors">
+                <Settings className="w-5 h-5" />
+              </button>
+              <button className="p-2 text-white/60 hover:text-white transition-colors">
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
-          ) : reports.length === 0 ? (
-            <div className="glass-card text-center py-12">
-              <p className="text-foreground/70">No interview reports yet</p>
-              <Link to="/interview" className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors mt-4 inline-block">
-                Start Your First Interview
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {reports.map((report) => (
-                <div key={report._id} className="glass-card hover:shadow-glass-lg transition-all group">
-                  <Link to={`/report/${report._id}`} className="block">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="text-lg font-medium">{report.role || 'Interview'} Session</h3>
-                        <div className="flex items-center text-sm text-foreground/70 mt-1">
-                          <Calendar size={14} className="mr-1" />
-                          <span>{formatDate(report.date)}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center">
-                        <div className={`text-lg font-medium mr-4 ${getScoreColor(report.overall_score)}`}>
-                          {Math.round(report.overall_score)}%
-                        </div>
-                        <div className="rounded-full p-2 bg-muted group-hover:bg-muted/80 transition-colors">
-                          <ChevronRight size={20} />
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {userType === 'candidate' ? <CandidateDashboard /> : <OrganizationDashboard />}
+      </div>
+    </div>
+  );
+};
+
+const CandidateDashboard: React.FC = () => {
+  return (
+    <div className="space-y-8">
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <ActionCard
+          title="Start Interview"
+          description="Begin a new AI-powered interview session"
+          icon={User}
+          gradient="from-purple-500 to-pink-500"
+          onClick={() => console.log('Start Interview')}
+        />
+        <ActionCard
+          title="View Reports"
+          description="Check your past interview performance"
+          icon={BarChart}
+          gradient="from-blue-500 to-cyan-500"
+          onClick={() => console.log('View Reports')}
+        />
+        <ActionCard
+          title="Schedule Interview"
+          description="Book an interview session for later"
+          icon={Calendar}
+          gradient="from-green-500 to-emerald-500"
+          onClick={() => console.log('Schedule Interview')}
+        />
+      </div>
+
+      {/* Recent Activity */}
+      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
+        <h2 className="text-2xl font-bold text-white mb-6">Recent Activity</h2>
+        <div className="space-y-4">
+          <ActivityItem
+            title="Software Engineer Interview"
+            description="Completed 2 hours ago"
+            score={85}
+          />
+          <ActivityItem
+            title="Frontend Developer Interview"
+            description="Completed yesterday"
+            score={78}
+          />
+          <ActivityItem
+            title="Full Stack Developer Interview"
+            description="Completed 3 days ago"
+            score={92}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const OrganizationDashboard: React.FC = () => {
+  return (
+    <div className="space-y-8">
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <ActionCard
+          title="Add Candidates"
+          description="Register new candidates for interviews"
+          icon={User}
+          gradient="from-purple-500 to-pink-500"
+          onClick={() => console.log('Add Candidates')}
+        />
+        <ActionCard
+          title="View Reports"
+          description="Analyze candidate performance"
+          icon={BarChart}
+          gradient="from-blue-500 to-cyan-500"
+          onClick={() => console.log('View Reports')}
+        />
+        <ActionCard
+          title="Manage Templates"
+          description="Create and edit interview templates"
+          icon={Settings}
+          gradient="from-green-500 to-emerald-500"
+          onClick={() => console.log('Manage Templates')}
+        />
+        <ActionCard
+          title="Schedule Interviews"
+          description="Book interview sessions"
+          icon={Calendar}
+          gradient="from-orange-500 to-red-500"
+          onClick={() => console.log('Schedule Interviews')}
+        />
+      </div>
+
+      {/* Statistics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard title="Total Candidates" value="156" change="+12 this week" />
+        <StatCard title="Completed Interviews" value="89" change="+8 this week" />
+        <StatCard title="Average Score" value="82.5" change="+2.3 from last week" />
+      </div>
+
+      {/* Recent Interviews */}
+      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
+        <h2 className="text-2xl font-bold text-white mb-6">Recent Interviews</h2>
+        <div className="space-y-4">
+          <InterviewItem
+            candidate="John Smith"
+            role="Software Engineer"
+            date="2 hours ago"
+            score={85}
+            status="Completed"
+          />
+          <InterviewItem
+            candidate="Sarah Johnson"
+            role="Frontend Developer"
+            date="Yesterday"
+            score={78}
+            status="Completed"
+          />
+          <InterviewItem
+            candidate="Mike Chen"
+            role="Full Stack Developer"
+            date="In Progress"
+            score={null}
+            status="Active"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface ActionCardProps {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  gradient: string;
+  onClick: () => void;
+}
+
+const ActionCard: React.FC<ActionCardProps> = ({ title, description, icon: Icon, gradient, onClick }) => {
+  return (
+    <button
+      onClick={onClick}
+      className="group p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105 text-left w-full"
+    >
+      <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+        <Icon className="w-6 h-6 text-white" />
+      </div>
+      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
+      <p className="text-white/70 text-sm">{description}</p>
+    </button>
+  );
+};
+
+interface ActivityItemProps {
+  title: string;
+  description: string;
+  score: number;
+}
+
+const ActivityItem: React.FC<ActivityItemProps> = ({ title, description, score }) => {
+  return (
+    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+      <div>
+        <h4 className="text-white font-medium">{title}</h4>
+        <p className="text-white/60 text-sm">{description}</p>
+      </div>
+      <div className="text-right">
+        <div className="text-lg font-bold text-white">{score}%</div>
+        <div className="text-xs text-white/60">Score</div>
+      </div>
+    </div>
+  );
+};
+
+interface StatCardProps {
+  title: string;
+  value: string;
+  change: string;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, value, change }) => {
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+      <h3 className="text-white/80 text-sm font-medium mb-2">{title}</h3>
+      <div className="text-3xl font-bold text-white mb-1">{value}</div>
+      <div className="text-green-400 text-sm">{change}</div>
+    </div>
+  );
+};
+
+interface InterviewItemProps {
+  candidate: string;
+  role: string;
+  date: string;
+  score: number | null;
+  status: string;
+}
+
+const InterviewItem: React.FC<InterviewItemProps> = ({ candidate, role, date, score, status }) => {
+  return (
+    <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+      <div className="flex items-center space-x-4">
+        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+          <User className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h4 className="text-white font-medium">{candidate}</h4>
+          <p className="text-white/60 text-sm">{role} • {date}</p>
+        </div>
+      </div>
+      <div className="text-right">
+        {score !== null && (
+          <div className="text-lg font-bold text-white">{score}%</div>
+        )}
+        <div className={`text-xs px-2 py-1 rounded-full ${
+          status === 'Completed' ? 'bg-green-500/20 text-green-400' : 
+          status === 'Active' ? 'bg-blue-500/20 text-blue-400' : 
+          'bg-gray-500/20 text-gray-400'
+        }`}>
+          {status}
         </div>
       </div>
     </div>
