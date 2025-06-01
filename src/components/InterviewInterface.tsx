@@ -32,18 +32,21 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const handleStartListening = async () => {
     try {
       setIsListening(true);
-      await clientSpeechRecognition({
-        onResult: (result) => {
+      clientSpeechRecognition.create(
+        (result) => {
           setTranscript(result.transcript);
           if (result.isFinal && onAnswerSubmitted) {
             onAnswerSubmitted(result.transcript);
           }
         },
-        onError: (error) => {
+        () => {
+          console.log('Silence detected');
+        },
+        (error) => {
           console.error('Speech recognition error:', error);
           setIsListening(false);
         }
-      });
+      );
     } catch (error) {
       console.error('Failed to start speech recognition:', error);
       setIsListening(false);
@@ -52,8 +55,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
   const handleStopListening = () => {
     setIsListening(false);
-    // Note: clientSpeechRecognition doesn't export a stop function, 
-    // this would need to be handled within the clientSpeechRecognition implementation
   };
 
   const formatTime = (seconds: number) => {
