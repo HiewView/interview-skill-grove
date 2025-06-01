@@ -1,19 +1,17 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Brain, Eye, EyeOff, ArrowLeft, User, Building } from 'lucide-react';
-
-type UserType = 'candidate' | 'organization';
+import { Brain, Eye, EyeOff, ArrowLeft, User, Building2 } from 'lucide-react';
 
 const Signup: React.FC = () => {
-  const [userType, setUserType] = useState<UserType>('candidate');
+  const [userType, setUserType] = useState<'candidate' | 'organization'>('candidate');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
     organizationName: '',
-    termsAccepted: false
+    role: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -26,22 +24,15 @@ const Signup: React.FC = () => {
     setIsLoading(true);
     setError('');
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setIsLoading(false);
       return;
     }
 
-    if (!formData.termsAccepted) {
-      setError('Please accept the terms and conditions');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       // TODO: Implement actual registration
-      console.log('Signup attempt:', { ...formData, userType });
+      console.log('Registration attempt:', { ...formData, userType });
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -56,63 +47,62 @@ const Signup: React.FC = () => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [e.target.name]: e.target.value
     }));
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Back to Home */}
         <Link 
           to="/"
-          className="inline-flex items-center space-x-2 text-white/80 hover:text-yellow-500 transition-colors mb-8"
+          className="inline-flex items-center space-x-2 text-white/80 hover:text-blue-400 transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Home</span>
         </Link>
 
         {/* Signup Card */}
-        <div className="bg-gray-900 rounded-2xl p-8 border border-yellow-500/30">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center space-x-2 mb-4">
-              <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
-                <Brain className="w-6 h-6 text-black" />
+              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                <Brain className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-bold text-yellow-500">HireView</span>
+              <span className="text-2xl font-bold text-white">HireView</span>
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
-            <p className="text-white/70">Join thousands of professionals using HireView</p>
+            <p className="text-white/70">Join the future of AI-powered interviews</p>
           </div>
 
           {/* User Type Selection */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="flex space-x-4 mb-6">
             <button
               type="button"
               onClick={() => setUserType('candidate')}
-              className={`p-4 rounded-lg border transition-all ${
+              className={`flex-1 p-3 rounded-lg border-2 transition-colors ${
                 userType === 'candidate'
-                  ? 'bg-yellow-500/20 border-yellow-500 text-white'
-                  : 'bg-black border-white/20 text-white/70 hover:bg-white/5'
+                  ? 'bg-blue-500/20 border-blue-500 text-white'
+                  : 'bg-white/5 border-white/20 text-white/70 hover:border-white/40'
               }`}
             >
-              <User className="w-6 h-6 mx-auto mb-2" />
+              <User className="w-5 h-5 mx-auto mb-1" />
               <div className="text-sm font-medium">Candidate</div>
             </button>
             <button
               type="button"
               onClick={() => setUserType('organization')}
-              className={`p-4 rounded-lg border transition-all ${
+              className={`flex-1 p-3 rounded-lg border-2 transition-colors ${
                 userType === 'organization'
-                  ? 'bg-yellow-500/20 border-yellow-500 text-white'
-                  : 'bg-black border-white/20 text-white/70 hover:bg-white/5'
+                  ? 'bg-blue-500/20 border-blue-500 text-white'
+                  : 'bg-white/5 border-white/20 text-white/70 hover:border-white/40'
               }`}
             >
-              <Building className="w-6 h-6 mx-auto mb-2" />
+              <Building2 className="w-5 h-5 mx-auto mb-1" />
               <div className="text-sm font-medium">Organization</div>
             </button>
           </div>
@@ -125,10 +115,10 @@ const Signup: React.FC = () => {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-white/80 mb-2">
-                {userType === 'candidate' ? 'Full Name' : 'Contact Person Name'}
+                Full Name
               </label>
               <input
                 type="text"
@@ -137,28 +127,10 @@ const Signup: React.FC = () => {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
-                placeholder="Enter your name"
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Enter your full name"
               />
             </div>
-
-            {userType === 'organization' && (
-              <div>
-                <label htmlFor="organizationName" className="block text-sm font-medium text-white/80 mb-2">
-                  Organization Name
-                </label>
-                <input
-                  type="text"
-                  id="organizationName"
-                  name="organizationName"
-                  value={formData.organizationName}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
-                  placeholder="Enter organization name"
-                />
-              </div>
-            )}
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-white/80 mb-2">
@@ -171,10 +143,45 @@ const Signup: React.FC = () => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Enter your email"
               />
             </div>
+
+            {userType === 'organization' && (
+              <>
+                <div>
+                  <label htmlFor="organizationName" className="block text-sm font-medium text-white/80 mb-2">
+                    Organization Name
+                  </label>
+                  <input
+                    type="text"
+                    id="organizationName"
+                    name="organizationName"
+                    value={formData.organizationName}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Enter organization name"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="role" className="block text-sm font-medium text-white/80 mb-2">
+                    Your Role
+                  </label>
+                  <input
+                    type="text"
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="e.g., HR Manager, Recruiter"
+                  />
+                </div>
+              </>
+            )}
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-white/80 mb-2">
@@ -188,7 +195,7 @@ const Signup: React.FC = () => {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all pr-12"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12"
                   placeholder="Create a password"
                 />
                 <button
@@ -213,7 +220,7 @@ const Signup: React.FC = () => {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all pr-12"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12"
                   placeholder="Confirm your password"
                 />
                 <button
@@ -226,36 +233,15 @@ const Signup: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-start space-x-2">
-              <input
-                type="checkbox"
-                id="termsAccepted"
-                name="termsAccepted"
-                checked={formData.termsAccepted}
-                onChange={handleChange}
-                className="w-4 h-4 text-yellow-500 bg-black border-white/20 rounded focus:ring-yellow-500 focus:ring-2 mt-1"
-              />
-              <label htmlFor="termsAccepted" className="text-sm text-white/70">
-                I agree to the{' '}
-                <Link to="/terms" className="text-yellow-500 hover:text-yellow-400 transition-colors">
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link to="/privacy" className="text-yellow-500 hover:text-yellow-400 transition-colors">
-                  Privacy Policy
-                </Link>
-              </label>
-            </div>
-
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-yellow-500 text-black py-3 rounded-lg font-semibold hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
-                  <span>Creating account...</span>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Creating Account...</span>
                 </div>
               ) : (
                 'Create Account'
@@ -264,10 +250,10 @@ const Signup: React.FC = () => {
           </form>
 
           {/* Footer */}
-          <div className="mt-8 text-center">
-            <p className="text-white/70">
+          <div className="mt-6 text-center">
+            <p className="text-white/70 text-sm">
               Already have an account?{' '}
-              <Link to="/login" className="text-yellow-500 hover:text-yellow-400 transition-colors font-medium">
+              <Link to="/login" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
                 Sign in
               </Link>
             </p>

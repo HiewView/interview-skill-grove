@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, Video, VideoOff, Code, Clock } from 'lucide-react';
-import { startSpeechRecognition, stopSpeechRecognition } from '../utils/clientSpeechUtils';
+import { clientSpeechRecognition } from '../utils/clientSpeechUtils';
 
 interface InterviewInterfaceProps {
   sessionId: string;
@@ -32,7 +32,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const handleStartListening = async () => {
     try {
       setIsListening(true);
-      await startSpeechRecognition({
+      await clientSpeechRecognition({
         onResult: (result) => {
           setTranscript(result.transcript);
           if (result.isFinal && onAnswerSubmitted) {
@@ -52,7 +52,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
   const handleStopListening = () => {
     setIsListening(false);
-    stopSpeechRecognition();
+    // Note: clientSpeechRecognition doesn't export a stop function, 
+    // this would need to be handled within the clientSpeechRecognition implementation
   };
 
   const formatTime = (seconds: number) => {
@@ -62,14 +63,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
       {/* Header */}
-      <div className="bg-black/80 border-b border-yellow-500/30 p-4">
+      <div className="bg-white/5 backdrop-blur-md border-b border-white/10 p-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Clock className="w-5 h-5 text-yellow-500" />
-              <span className="text-yellow-500 font-mono">{formatTime(interviewTime)}</span>
+              <Clock className="w-5 h-5 text-blue-400" />
+              <span className="text-blue-400 font-mono">{formatTime(interviewTime)}</span>
             </div>
           </div>
           
@@ -77,7 +78,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             <button
               onClick={() => setIsMuted(!isMuted)}
               className={`p-2 rounded-lg transition-colors ${
-                isMuted ? 'bg-red-500 text-white' : 'bg-yellow-500 text-black hover:bg-yellow-400'
+                isMuted ? 'bg-red-500/80 text-white' : 'bg-blue-500/80 text-white hover:bg-blue-600/80'
               }`}
             >
               {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -86,13 +87,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             <button
               onClick={() => setIsVideoOn(!isVideoOn)}
               className={`p-2 rounded-lg transition-colors ${
-                !isVideoOn ? 'bg-red-500 text-white' : 'bg-yellow-500 text-black hover:bg-yellow-400'
+                !isVideoOn ? 'bg-red-500/80 text-white' : 'bg-blue-500/80 text-white hover:bg-blue-600/80'
               }`}
             >
               {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
             </button>
             
-            <button className="p-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-400 transition-colors">
+            <button className="p-2 bg-blue-500/80 text-white rounded-lg hover:bg-blue-600/80 transition-colors">
               <Code className="w-5 h-5" />
             </button>
           </div>
@@ -103,36 +104,36 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       <div className="flex flex-1 p-4 gap-4">
         {/* Left Panel - Candidate Video */}
         <div className="w-1/2">
-          <div className="bg-gray-900 rounded-lg aspect-video flex items-center justify-center border border-yellow-500/30">
+          <div className="bg-white/5 backdrop-blur-md rounded-xl aspect-video flex items-center justify-center border border-white/10">
             {isVideoOn ? (
-              <div className="text-gray-400">Your Video Feed</div>
+              <div className="text-gray-300">Your Video Feed</div>
             ) : (
-              <div className="text-gray-400">Video Off</div>
+              <div className="text-gray-300">Video Off</div>
             )}
           </div>
         </div>
 
         {/* Right Panel - AI Interviewer */}
         <div className="w-1/2 flex flex-col">
-          <div className="bg-gray-900 rounded-lg aspect-video flex items-center justify-center border border-yellow-500/30 mb-4">
+          <div className="bg-white/5 backdrop-blur-md rounded-xl aspect-video flex items-center justify-center border border-white/10 mb-4">
             <div className="text-center">
-              <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-black font-bold text-xl">AI</span>
+              <div className="w-16 h-16 bg-blue-500/80 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-white font-bold text-xl">AI</span>
               </div>
-              <div className="text-yellow-500 font-medium">AI Interviewer</div>
+              <div className="text-blue-400 font-medium">AI Interviewer</div>
             </div>
           </div>
           
           {/* Conversation */}
-          <div className="flex-1 bg-gray-900 rounded-lg p-4 border border-yellow-500/30">
+          <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
             <div className="space-y-4">
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-                <div className="text-yellow-500 text-sm font-medium mb-1">AI Interviewer:</div>
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                <div className="text-blue-400 text-sm font-medium mb-1">AI Interviewer:</div>
                 <div className="text-white">{currentQuestion}</div>
               </div>
               
               {transcript && (
-                <div className="bg-white/5 border border-white/20 rounded-lg p-3">
+                <div className="bg-white/10 border border-white/20 rounded-lg p-3">
                   <div className="text-white/60 text-sm font-medium mb-1">You:</div>
                   <div className="text-white">{transcript}</div>
                 </div>
@@ -146,8 +147,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               onClick={isListening ? handleStopListening : handleStartListening}
               className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                 isListening 
-                  ? 'bg-red-500 text-white hover:bg-red-600' 
-                  : 'bg-yellow-500 text-black hover:bg-yellow-400'
+                  ? 'bg-red-500/80 text-white hover:bg-red-600/80' 
+                  : 'bg-blue-500/80 text-white hover:bg-blue-600/80'
               }`}
             >
               {isListening ? 'Stop Speaking' : 'Start Speaking'}

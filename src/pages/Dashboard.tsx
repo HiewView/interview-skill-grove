@@ -1,98 +1,133 @@
 
 import React from 'react';
-import { User, Building, Calendar, BarChart, Settings, Bell, LogOut, Play, Clock, Target } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Play, Clock, FileText, Settings, Users, BarChart3 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
-  // TODO: Get user type from authentication context
-  const userType = 'candidate'; // This will come from auth context
+  const userType = 'candidate'; // TODO: Get from auth context
 
-  return (
-    <div className="min-h-screen bg-black">
-      {/* Navigation Header */}
-      <nav className="bg-gray-900 border-b border-yellow-500/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                <User className="w-5 h-5 text-black" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">
-                  {userType === 'candidate' ? 'Candidate Dashboard' : 'Organization Dashboard'}
-                </h1>
-                <p className="text-white/60 text-sm">Welcome back, John Doe</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button className="p-2 text-white/60 hover:text-yellow-500 transition-colors">
-                <Bell className="w-5 h-5" />
-              </button>
-              <button className="p-2 text-white/60 hover:text-yellow-500 transition-colors">
-                <Settings className="w-5 h-5" />
-              </button>
-              <button className="p-2 text-white/60 hover:text-yellow-500 transition-colors">
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {userType === 'candidate' ? <CandidateDashboard /> : <OrganizationDashboard />}
-      </div>
-    </div>
-  );
+  if (userType === 'candidate') {
+    return <CandidateDashboard />;
+  } else {
+    return <OrganizationDashboard />;
+  }
 };
 
 const CandidateDashboard: React.FC = () => {
   return (
-    <div className="space-y-8">
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <ActionCard
-          title="Start Interview"
-          description="Begin a new AI-powered interview session"
-          icon={Play}
-          bgColor="bg-yellow-500"
-          onClick={() => console.log('Start Interview')}
-        />
-        <ActionCard
-          title="View Reports"
-          description="Check your past interview performance"
-          icon={BarChart}
-          bgColor="bg-yellow-500"
-          onClick={() => console.log('View Reports')}
-        />
-        <ActionCard
-          title="Schedule Interview"
-          description="Book an interview session for later"
-          icon={Calendar}
-          bgColor="bg-yellow-500"
-          onClick={() => console.log('Schedule Interview')}
-        />
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pt-20">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Welcome back, John!</h1>
+          <p className="text-white/70">Ready for your next interview challenge?</p>
+        </div>
 
-      {/* Recent Activity */}
-      <div className="bg-gray-900 rounded-2xl p-6 border border-yellow-500/30">
-        <h2 className="text-2xl font-bold text-white mb-6">Recent Activity</h2>
-        <div className="space-y-4">
-          <ActivityItem
-            title="Software Engineer Interview"
-            description="Completed 2 hours ago"
-            score={85}
-          />
-          <ActivityItem
-            title="Frontend Developer Interview"
-            description="Completed yesterday"
-            score={78}
-          />
-          <ActivityItem
-            title="Full Stack Developer Interview"
-            description="Completed 3 days ago"
-            score={92}
-          />
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <Link 
+            to="/interview"
+            className="group bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:border-blue-400/50 transition-all duration-300"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Play className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Start Interview</h3>
+                <p className="text-white/60 text-sm">Begin a new AI interview session</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link 
+            to="/profile"
+            className="group bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:border-blue-400/50 transition-all duration-300"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Settings className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Profile Setup</h3>
+                <p className="text-white/60 text-sm">Update your skills and resume</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link 
+            to="/reports"
+            className="group bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:border-blue-400/50 transition-all duration-300"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">View Reports</h3>
+                <p className="text-white/60 text-sm">Check your interview history</p>
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Upcoming Interviews */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+              <Clock className="w-5 h-5 mr-2 text-blue-400" />
+              Upcoming Interviews
+            </h2>
+            <div className="space-y-3">
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-white">Frontend Developer - TechCorp</h3>
+                    <p className="text-white/60 text-sm">Tomorrow at 2:00 PM</p>
+                  </div>
+                  <span className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs">Scheduled</span>
+                </div>
+              </div>
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-white">React Developer - StartupXYZ</h3>
+                    <p className="text-white/60 text-sm">Dec 20 at 10:00 AM</p>
+                  </div>
+                  <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs">Confirmed</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Reports */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+              <BarChart3 className="w-5 h-5 mr-2 text-purple-400" />
+              Recent Performance
+            </h2>
+            <div className="space-y-3">
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-medium text-white">Mock Interview #3</h3>
+                    <p className="text-white/60 text-sm">Technical Skills: JavaScript</p>
+                  </div>
+                  <span className="text-green-400 font-semibold">85%</span>
+                </div>
+              </div>
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-medium text-white">Mock Interview #2</h3>
+                    <p className="text-white/60 text-sm">Behavioral Questions</p>
+                  </div>
+                  <span className="text-blue-400 font-semibold">78%</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -101,167 +136,110 @@ const CandidateDashboard: React.FC = () => {
 
 const OrganizationDashboard: React.FC = () => {
   return (
-    <div className="space-y-8">
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <ActionCard
-          title="Add Candidates"
-          description="Register new candidates for interviews"
-          icon={User}
-          bgColor="bg-yellow-500"
-          onClick={() => console.log('Add Candidates')}
-        />
-        <ActionCard
-          title="View Reports"
-          description="Analyze candidate performance"
-          icon={BarChart}
-          bgColor="bg-yellow-500"
-          onClick={() => console.log('View Reports')}
-        />
-        <ActionCard
-          title="Manage Templates"
-          description="Create and edit interview templates"
-          icon={Settings}
-          bgColor="bg-yellow-500"
-          onClick={() => console.log('Manage Templates')}
-        />
-        <ActionCard
-          title="Schedule Interviews"
-          description="Book interview sessions"
-          icon={Calendar}
-          bgColor="bg-yellow-500"
-          onClick={() => console.log('Schedule Interviews')}
-        />
-      </div>
-
-      {/* Statistics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="Total Candidates" value="156" change="+12 this week" />
-        <StatCard title="Completed Interviews" value="89" change="+8 this week" />
-        <StatCard title="Average Score" value="82.5" change="+2.3 from last week" />
-      </div>
-
-      {/* Recent Interviews */}
-      <div className="bg-gray-900 rounded-2xl p-6 border border-yellow-500/30">
-        <h2 className="text-2xl font-bold text-white mb-6">Recent Interviews</h2>
-        <div className="space-y-4">
-          <InterviewItem
-            candidate="John Smith"
-            role="Software Engineer"
-            date="2 hours ago"
-            score={85}
-            status="Completed"
-          />
-          <InterviewItem
-            candidate="Sarah Johnson"
-            role="Frontend Developer"
-            date="Yesterday"
-            score={78}
-            status="Completed"
-          />
-          <InterviewItem
-            candidate="Mike Chen"
-            role="Full Stack Developer"
-            date="In Progress"
-            score={null}
-            status="Active"
-          />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pt-20">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Organization Dashboard</h1>
+          <p className="text-white/70">Manage interviews and track candidate performance</p>
         </div>
-      </div>
-    </div>
-  );
-};
 
-interface ActionCardProps {
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  bgColor: string;
-  onClick: () => void;
-}
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Link 
+            to="/admin/scheduling"
+            className="group bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:border-blue-400/50 transition-all duration-300"
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <Clock className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Schedule Interview</h3>
+              <p className="text-white/60 text-sm">Set up new interviews</p>
+            </div>
+          </Link>
 
-const ActionCard: React.FC<ActionCardProps> = ({ title, description, icon: Icon, bgColor, onClick }) => {
-  return (
-    <button
-      onClick={onClick}
-      className="group p-6 rounded-2xl bg-gray-900 border border-yellow-500/30 hover:border-yellow-500/50 transition-all duration-300 text-left w-full"
-    >
-      <div className={`w-12 h-12 rounded-xl ${bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-        <Icon className="w-6 h-6 text-black" />
-      </div>
-      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-      <p className="text-white/70 text-sm">{description}</p>
-    </button>
-  );
-};
+          <Link 
+            to="/admin/candidates"
+            className="group bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:border-blue-400/50 transition-all duration-300"
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Manage Candidates</h3>
+              <p className="text-white/60 text-sm">View and manage applicants</p>
+            </div>
+          </Link>
 
-interface ActivityItemProps {
-  title: string;
-  description: string;
-  score: number;
-}
+          <Link 
+            to="/admin/reports"
+            className="group bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:border-blue-400/50 transition-all duration-300"
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Analytics</h3>
+              <p className="text-white/60 text-sm">View performance metrics</p>
+            </div>
+          </Link>
 
-const ActivityItem: React.FC<ActivityItemProps> = ({ title, description, score }) => {
-  return (
-    <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-white/10">
-      <div>
-        <h4 className="text-white font-medium">{title}</h4>
-        <p className="text-white/60 text-sm">{description}</p>
-      </div>
-      <div className="text-right">
-        <div className="text-lg font-bold text-yellow-500">{score}%</div>
-        <div className="text-xs text-white/60">Score</div>
-      </div>
-    </div>
-  );
-};
-
-interface StatCardProps {
-  title: string;
-  value: string;
-  change: string;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, change }) => {
-  return (
-    <div className="bg-gray-900 rounded-xl p-6 border border-yellow-500/30">
-      <h3 className="text-white/80 text-sm font-medium mb-2">{title}</h3>
-      <div className="text-3xl font-bold text-white mb-1">{value}</div>
-      <div className="text-yellow-500 text-sm">{change}</div>
-    </div>
-  );
-};
-
-interface InterviewItemProps {
-  candidate: string;
-  role: string;
-  date: string;
-  score: number | null;
-  status: string;
-}
-
-const InterviewItem: React.FC<InterviewItemProps> = ({ candidate, role, date, score, status }) => {
-  return (
-    <div className="flex items-center justify-between p-4 bg-black rounded-lg border border-white/10">
-      <div className="flex items-center space-x-4">
-        <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
-          <User className="w-5 h-5 text-black" />
+          <Link 
+            to="/admin/settings"
+            className="group bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:border-blue-400/50 transition-all duration-300"
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <Settings className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Settings</h3>
+              <p className="text-white/60 text-sm">Configure organization</p>
+            </div>
+          </Link>
         </div>
-        <div>
-          <h4 className="text-white font-medium">{candidate}</h4>
-          <p className="text-white/60 text-sm">{role} • {date}</p>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-400 mb-2">24</div>
+              <div className="text-white/70">Total Interviews</div>
+            </div>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-400 mb-2">18</div>
+              <div className="text-white/70">Completed</div>
+            </div>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-400 mb-2">6</div>
+              <div className="text-white/70">Pending</div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="text-right">
-        {score !== null && (
-          <div className="text-lg font-bold text-yellow-500">{score}%</div>
-        )}
-        <div className={`text-xs px-2 py-1 rounded-full ${
-          status === 'Completed' ? 'bg-green-500/20 text-green-400' : 
-          status === 'Active' ? 'bg-yellow-500/20 text-yellow-400' : 
-          'bg-gray-500/20 text-gray-400'
-        }`}>
-          {status}
+
+        {/* Recent Activity */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-white mb-4">Recent Interview Activity</h2>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center p-4 bg-white/5 rounded-lg border border-white/10">
+              <div>
+                <h3 className="font-medium text-white">John Doe - Frontend Developer</h3>
+                <p className="text-white/60 text-sm">Completed 2 hours ago</p>
+              </div>
+              <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm">Completed</span>
+            </div>
+            <div className="flex justify-between items-center p-4 bg-white/5 rounded-lg border border-white/10">
+              <div>
+                <h3 className="font-medium text-white">Jane Smith - Backend Developer</h3>
+                <p className="text-white/60 text-sm">Scheduled for tomorrow</p>
+              </div>
+              <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm">Scheduled</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -5,34 +5,34 @@ import { ArrowRight, Brain, BarChart, Shield, Code, Users, Zap } from 'lucide-re
 
 const Home: React.FC = () => {
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md border-b border-yellow-500/30">
+      <nav className="fixed top-0 w-full z-50 bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                <Brain className="w-5 h-5 text-black" />
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <Brain className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-yellow-500">HireView</span>
+              <span className="text-xl font-bold text-white">HireView</span>
             </div>
             
             <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-white/80 hover:text-yellow-500 transition-colors">Features</a>
-              <a href="#how-it-works" className="text-white/80 hover:text-yellow-500 transition-colors">How it Works</a>
-              <a href="#pricing" className="text-white/80 hover:text-yellow-500 transition-colors">Pricing</a>
+              <a href="#features" className="text-white/80 hover:text-blue-400 transition-colors">Features</a>
+              <a href="#how-it-works" className="text-white/80 hover:text-blue-400 transition-colors">How it Works</a>
+              <a href="#pricing" className="text-white/80 hover:text-blue-400 transition-colors">Pricing</a>
             </div>
             
             <div className="flex items-center space-x-4">
               <Link 
                 to="/login" 
-                className="text-white/80 hover:text-yellow-500 transition-colors"
+                className="text-white/80 hover:text-blue-400 transition-colors"
               >
                 Login
               </Link>
               <Link 
                 to="/signup" 
-                className="bg-yellow-500 text-black px-6 py-2 rounded-lg hover:bg-yellow-400 transition-colors font-medium"
+                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors font-medium"
               >
                 Get Started
               </Link>
@@ -47,10 +47,9 @@ const Home: React.FC = () => {
           <div className="max-w-3xl mx-auto">
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
               AI-Powered
-              <span className="text-yellow-500">
-                {" "}Interview{" "}
+              <span className="text-blue-400 block">
+                Interview Experience
               </span>
-              Experience
             </h1>
             
             <p className="text-xl md:text-2xl text-white/80 mb-12 leading-relaxed">
@@ -61,7 +60,7 @@ const Home: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
               <Link
                 to="/candidate-signup"
-                className="group bg-yellow-500 text-black px-8 py-4 rounded-xl text-lg font-semibold hover:bg-yellow-400 transition-colors flex items-center justify-center space-x-2"
+                className="group bg-blue-500 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
               >
                 <span>Start as Candidate</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -69,7 +68,7 @@ const Home: React.FC = () => {
               
               <Link
                 to="/organization-signup"
-                className="group bg-white/10 backdrop-blur-md text-white px-8 py-4 rounded-xl text-lg font-semibold border border-yellow-500/30 hover:bg-yellow-500/10 transition-colors flex items-center justify-center space-x-2"
+                className="group bg-white/10 backdrop-blur-md text-white px-8 py-4 rounded-xl text-lg font-semibold border border-white/20 hover:bg-white/20 transition-colors flex items-center justify-center space-x-2"
               >
                 <span>Start as Organization</span>
                 <Users className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -80,7 +79,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-900/50">
+      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-white/5">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
@@ -96,37 +95,31 @@ const Home: React.FC = () => {
               icon={Brain}
               title="AI-Driven Questions"
               description="Dynamic question generation based on your responses, resume, and role requirements"
-              bgColor="bg-yellow-500"
             />
             <FeatureCard
               icon={BarChart}
               title="Real-time Analysis"
               description="Instant feedback on technical skills, communication, and problem-solving abilities"
-              bgColor="bg-yellow-500"
             />
             <FeatureCard
               icon={Shield}
               title="Malpractice Detection"
               description="Advanced monitoring for tab switching, lip-sync analysis, and integrity verification"
-              bgColor="bg-yellow-500"
             />
             <FeatureCard
               icon={Code}
               title="Code Challenges"
               description="Built-in code editor with syntax highlighting for technical assessments"
-              bgColor="bg-yellow-500"
             />
             <FeatureCard
               icon={Zap}
               title="Speech Technology"
               description="Industry-leading STT and TTS for natural conversation flow"
-              bgColor="bg-yellow-500"
             />
             <FeatureCard
               icon={Users}
               title="Multi-Role Support"
               description="Tailored experiences for candidates, organizations, and universities"
-              bgColor="bg-yellow-500"
             />
           </div>
         </div>
@@ -164,8 +157,8 @@ const Home: React.FC = () => {
             </div>
             
             <div className="relative">
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-8 backdrop-blur-sm">
-                <div className="aspect-video bg-black/30 rounded-xl flex items-center justify-center">
+              <div className="bg-white/5 backdrop-blur-md border border-white/20 rounded-2xl p-8">
+                <div className="aspect-video bg-white/10 rounded-xl flex items-center justify-center">
                   <div className="text-white/60 text-lg">Interview Demo</div>
                 </div>
               </div>
@@ -175,7 +168,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-yellow-500/10">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white/5">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
             Ready to Transform Your Interview Experience?
@@ -186,7 +179,7 @@ const Home: React.FC = () => {
           
           <Link
             to="/signup"
-            className="inline-flex items-center space-x-2 bg-yellow-500 text-black px-12 py-4 rounded-xl text-xl font-semibold hover:bg-yellow-400 transition-colors"
+            className="inline-flex items-center space-x-2 bg-blue-500 text-white px-12 py-4 rounded-xl text-xl font-semibold hover:bg-blue-600 transition-colors"
           >
             <span>Get Started Today</span>
             <ArrowRight className="w-6 h-6" />
@@ -195,14 +188,14 @@ const Home: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-yellow-500/30">
+      <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-white/20">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                <Brain className="w-5 h-5 text-black" />
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <Brain className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-yellow-500">HireView</span>
+              <span className="text-xl font-bold text-white">HireView</span>
             </div>
             
             <div className="text-white/60 text-sm">
@@ -219,14 +212,13 @@ interface FeatureCardProps {
   icon: React.ElementType;
   title: string;
   description: string;
-  bgColor: string;
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({ icon: Icon, title, description, bgColor }) => {
+const FeatureCard: React.FC<FeatureCardProps> = ({ icon: Icon, title, description }) => {
   return (
-    <div className="group p-6 rounded-2xl bg-gray-900 border border-yellow-500/30 hover:border-yellow-500/50 transition-all duration-300">
-      <div className={`w-12 h-12 rounded-xl ${bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-        <Icon className="w-6 h-6 text-black" />
+    <div className="group p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-blue-400/50 transition-all duration-300">
+      <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+        <Icon className="w-6 h-6 text-white" />
       </div>
       <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
       <p className="text-white/70">{description}</p>
@@ -243,8 +235,8 @@ interface ProcessStepProps {
 const ProcessStep: React.FC<ProcessStepProps> = ({ number, title, description }) => {
   return (
     <div className="flex items-start space-x-4">
-      <div className="w-12 h-12 rounded-full bg-yellow-500 flex items-center justify-center flex-shrink-0">
-        <span className="text-black font-bold">{number}</span>
+      <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+        <span className="text-white font-bold">{number}</span>
       </div>
       <div>
         <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
