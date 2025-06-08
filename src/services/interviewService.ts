@@ -41,11 +41,17 @@ export const interviewService = {
     }
 
     const headers = getApiHeaders();
-    const { 'Content-Type': _, ...headersWithoutContentType } = headers;
+    // Remove Content-Type for FormData - browser will set it automatically with boundary
+    const formDataHeaders: HeadersInit = {};
+    Object.entries(headers).forEach(([key, value]) => {
+      if (key !== 'Content-Type') {
+        (formDataHeaders as any)[key] = value;
+      }
+    });
 
     const response = await fetch(`${API_URL}/interview/start_interview`, {
       method: 'POST',
-      headers: headersWithoutContentType,
+      headers: formDataHeaders,
       body: formData,
     });
 
@@ -75,11 +81,17 @@ export const interviewService = {
     formData.append('audio', audioBlob, 'audio.webm');
 
     const headers = getApiHeaders();
-    const { 'Content-Type': _, ...headersWithoutContentType } = headers;
+    // Remove Content-Type for FormData - browser will set it automatically with boundary
+    const formDataHeaders: HeadersInit = {};
+    Object.entries(headers).forEach(([key, value]) => {
+      if (key !== 'Content-Type') {
+        (formDataHeaders as any)[key] = value;
+      }
+    });
 
     const response = await fetch(`${API_URL}/interview/transcribe`, {
       method: 'POST',
-      headers: headersWithoutContentType,
+      headers: formDataHeaders,
       body: formData,
     });
 
