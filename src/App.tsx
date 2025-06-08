@@ -10,7 +10,7 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ProfileSetup from './pages/candidate/ProfileSetup';
 import MockInterview from './pages/candidate/MockInterview';
-import InterviewInterface from './components/InterviewInterface';
+import Interview from './pages/Interview';
 import NotFound from './pages/NotFound';
 import './App.css';
 
@@ -30,8 +30,8 @@ function App() {
         <Route path="/candidate/dashboard" element={<Dashboard />} />
         <Route path="/candidate/profile-setup" element={<ProfileSetup />} />
         <Route path="/candidate/mock-interview" element={<MockInterview />} />
-        <Route path="/candidate/interview" element={<InterviewInterface sessionId="mock-session" />} />
-        <Route path="/interview" element={<InterviewInterface sessionId="live-session" />} />
+        <Route path="/candidate/interview" element={<Interview />} />
+        <Route path="/interview" element={<Interview />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>

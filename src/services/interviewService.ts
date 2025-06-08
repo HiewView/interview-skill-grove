@@ -40,11 +40,12 @@ export const interviewService = {
       formData.append('resume_file', params.resume_file);
     }
 
+    const headers = getApiHeaders();
+    const { 'Content-Type': _, ...headersWithoutContentType } = headers;
+
     const response = await fetch(`${API_URL}/interview/start_interview`, {
       method: 'POST',
-      headers: {
-        ...getApiHeaders(false), // Don't include Content-Type for FormData
-      },
+      headers: headersWithoutContentType,
       body: formData,
     });
 
@@ -73,11 +74,12 @@ export const interviewService = {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio.webm');
 
+    const headers = getApiHeaders();
+    const { 'Content-Type': _, ...headersWithoutContentType } = headers;
+
     const response = await fetch(`${API_URL}/interview/transcribe`, {
       method: 'POST',
-      headers: {
-        ...getApiHeaders(false),
-      },
+      headers: headersWithoutContentType,
       body: formData,
     });
 
