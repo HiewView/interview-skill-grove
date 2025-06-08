@@ -9,9 +9,9 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-orange-50 via-white to-red-50">
       <NavBar />
-      <main className="flex-1 page-transition pt-16"> {/* Added pt-16 for navbar height */}
+      <main className="flex-1 pt-16">
         {children || <Outlet />}
       </main>
     </div>
