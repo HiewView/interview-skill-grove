@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -97,8 +96,6 @@ const InterviewRoom: React.FC<InterviewRoomProps> = ({
   };
 
   const stopListening = async () => {
-    if (!audioRecordingService.isRecording()) return;
-
     try {
       setIsListening(false);
       setIsProcessing(true);
