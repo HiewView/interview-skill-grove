@@ -1,4 +1,3 @@
-
 /**
  * Utilities for API calls
  */
@@ -11,11 +10,18 @@ export const API_URL = "http://127.0.0.1:5000";
  */
 const isTokenExpired = (token: string): boolean => {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const currentTime = Date.now() / 1000;
-    return payload.exp < currentTime;
+    // Fix: Properly decoding base64 URL (issues if string not padded)
+    const base64Url = token.split('.')[1];
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) { base64 += '='; }
+    const payload = JSON.parse(atob(base64));
+    const currentTime = Math.floor(Date.now() / 1000); // seconds since epoch
+    // Debug: Uncomment next line to check JWT exp in logs
+    // console.log('JWT exp:', payload.exp, ', now:', currentTime, ', expiresIn:', (payload.exp - currentTime), 'seconds');
+    return typeof payload.exp === "number" ? (payload.exp < currentTime) : true;
   } catch (error) {
-    return true; // If we can't parse it, consider it expired
+    // If we can't parse it, consider it expired
+    return true;
   }
 };
 
@@ -32,6 +38,7 @@ export const getApiHeaders = (): HeadersInit => {
   if (token) {
     // Check if token is expired
     if (isTokenExpired(token)) {
+      // Only clear if expired
       console.log('Token expired, clearing localStorage');
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_info');
@@ -60,13 +67,11 @@ export const isAuthenticated = (): boolean => {
   const token = localStorage.getItem('auth_token');
   if (!token) return false;
   
-  // Check if token is expired
   if (isTokenExpired(token)) {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_info');
     return false;
   }
-  
   return true;
 };
 
@@ -75,7 +80,6 @@ export const isAuthenticated = (): boolean => {
  */
 export const getCurrentUser = (): any => {
   if (!isAuthenticated()) return null;
-  
   const userInfo = localStorage.getItem('user_info');
   return userInfo ? JSON.parse(userInfo) : null;
 };
