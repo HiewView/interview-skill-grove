@@ -89,7 +89,8 @@ export const interviewService = {
       }
     });
 
-    const response = await fetch(`${API_URL}/interview/transcribe`, {
+    // Use the correct endpoint that matches your Flask backend
+    const response = await fetch(`${API_URL}/transcribe`, {
       method: 'POST',
       headers: formDataHeaders,
       body: formData,
