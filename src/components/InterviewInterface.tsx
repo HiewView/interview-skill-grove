@@ -4,8 +4,6 @@ import PreInterviewSetup from './interview/PreInterviewSetup';
 import InterviewRoom from './interview/InterviewRoom';
 import { interviewService } from '../services/interviewService';
 import { useToast } from '../hooks/use-toast';
-import { isAuthenticated } from '../utils/apiUtils';
-import { useNavigate } from 'react-router-dom';
 
 const InterviewInterface: React.FC = () => {
   const [isSetupComplete, setIsSetupComplete] = useState(false);
@@ -13,19 +11,6 @@ const InterviewInterface: React.FC = () => {
   const [firstQuestion, setFirstQuestion] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
-
-  // Check authentication on mount
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to start an interview.",
-        variant: "destructive",
-      });
-      navigate('/login');
-    }
-  }, [navigate, toast]);
 
   const handleStartInterview = async (data: {
     name: string;
@@ -60,21 +45,11 @@ const InterviewInterface: React.FC = () => {
     } catch (error) {
       console.error('Error starting interview:', error);
       
-      // Check if it's an authentication error
-      if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
-        toast({
-          title: "Session Expired",
-          description: "Please log in again to continue.",
-          variant: "destructive",
-        });
-        navigate('/login');
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to start interview. Please try again.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Error",
+        description: "Failed to start interview. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
