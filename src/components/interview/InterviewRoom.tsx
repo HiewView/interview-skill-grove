@@ -7,6 +7,7 @@ import { speechService } from '../../services/speechService';
 import { audioRecordingService } from '../../services/audioRecordingService';
 import { interviewService } from '../../services/interviewService';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../hooks/use-toast';
 
 interface InterviewRoomProps {
   sessionId: string;
@@ -20,9 +21,7 @@ const InterviewRoom: React.FC<InterviewRoomProps> = ({
   onInterviewEnd 
 }) => {
   const [currentQuestion, setCurrentQuestion] = useState(firstQuestion);
-  const [conversation, setConversation] = useState<Array<{ type: 'ai' | 'user'; text: string }>>([
-    { type: 'ai', text: firstQuestion }
-  ]);
+  const [conversation, setConversation] = useState<Array<{ type: 'ai' | 'user'; text: string }>>([]);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isListening, setIsListening] = useState(false);
@@ -32,40 +31,38 @@ const InterviewRoom: React.FC<InterviewRoomProps> = ({
   const [currentTranscript, setCurrentTranscript] = useState('');
   
   const navigate = useNavigate();
+  const { toast } = useToast();
   const conversationRef = useRef<HTMLDivElement>(null);
 
-  // Timer for interview duration
   useEffect(() => {
-    const timer = setInterval(() => {
-      setInterviewTime(prev => prev + 1);
-    }, 1000);
-
+    const timer = setInterval(() => setInterviewTime(prev => prev + 1), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Auto-scroll conversation
   useEffect(() => {
     if (conversationRef.current) {
       conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
     }
   }, [conversation]);
 
-  // Start with AI speaking the first question
-  useEffect(() => {
-    const speakFirstQuestion = async () => {
-      if (firstQuestion) {
-        setIsAISpeaking(true);
-        try {
-          await speechService.speak(firstQuestion);
-        } catch (error) {
-          console.error('Error speaking first question:', error);
-        } finally {
-          setIsAISpeaking(false);
-        }
-      }
-    };
+  const speakAndSetQuestion = async (text: string) => {
+    setConversation(prev => [...prev, { type: 'ai', text }]);
+    setIsAISpeaking(true);
+    try {
+      await speechService.speak(text);
+    } catch (error) {
+      console.error('Error speaking:', error);
+      toast({ title: "Text-to-Speech Error", description: "Could not play audio.", variant: "destructive" });
+    } finally {
+      setIsAISpeaking(false);
+    }
+  };
 
-    speakFirstQuestion();
+  useEffect(() => {
+    if (firstQuestion) {
+      setCurrentQuestion(firstQuestion);
+      speakAndSetQuestion(firstQuestion);
+    }
   }, [firstQuestion]);
 
   const formatTime = (seconds: number) => {
@@ -75,102 +72,91 @@ const InterviewRoom: React.FC<InterviewRoomProps> = ({
   };
 
   const startListening = async () => {
-    if (!isMicOn || isAISpeaking || isProcessing) return;
+    if (!isMicOn || isAISpeaking || isProcessing || isListening) return;
 
     try {
       setIsListening(true);
       setCurrentTranscript('');
       await audioRecordingService.startRecording();
-      
-      // Set a timeout to automatically stop recording after 30 seconds
-      setTimeout(() => {
-        if (audioRecordingService.isRecording()) {
-          stopListening();
-        }
-      }, 30000);
-      
     } catch (error) {
       console.error('Error starting recording:', error);
       setIsListening(false);
+      toast({ title: "Microphone Error", description: "Could not start recording.", variant: "destructive" });
     }
   };
 
   const stopListening = async () => {
+    if (!isListening) return;
+    
     try {
       setIsListening(false);
       setIsProcessing(true);
       
       const audioBlob = await audioRecordingService.stopRecording();
+      if (audioBlob.size === 0) {
+        setIsProcessing(false);
+        return;
+      }
       
-      // Transcribe audio
       const { transcript } = await interviewService.transcribeAudio(audioBlob);
       setCurrentTranscript(transcript);
+      if (!transcript.trim()) {
+        setIsProcessing(false);
+        setCurrentTranscript('');
+        return;
+      }
       
-      // Add user response to conversation
       setConversation(prev => [...prev, { type: 'user', text: transcript }]);
       
-      // Submit answer and get next question
       const response = await interviewService.submitAnswer({
         session_id: sessionId,
         answer: transcript,
         question: currentQuestion,
       });
 
-      if (response.is_complete) {
-        // Interview is complete
-        handleEndInterview();
+      setCurrentTranscript('');
+
+      if (response.report_id) {
+        handleEndInterview(response.report_id);
         return;
       }
 
       if (response.next_question) {
         setCurrentQuestion(response.next_question);
-        setConversation(prev => [...prev, { type: 'ai', text: response.next_question }]);
-        
-        // AI speaks the next question
-        setIsAISpeaking(true);
-        try {
-          await speechService.speak(response.next_question);
-        } catch (error) {
-          console.error('Error speaking next question:', error);
-        } finally {
-          setIsAISpeaking(false);
-        }
+        await speakAndSetQuestion(response.next_question);
       }
       
     } catch (error) {
       console.error('Error processing answer:', error);
+      toast({ title: "Processing Error", description: "Could not process your answer.", variant: "destructive" });
     } finally {
       setIsProcessing(false);
-      setCurrentTranscript('');
     }
   };
 
-  const toggleVideo = () => {
-    setIsVideoOn(!isVideoOn);
-  };
+  const toggleVideo = () => setIsVideoOn(!isVideoOn);
 
   const toggleMic = () => {
-    if (isListening) {
-      stopListening();
-    }
+    if (isListening) stopListening();
     setIsMicOn(!isMicOn);
   };
 
-  const handleEndInterview = async () => {
-    try {
-      speechService.stop();
-      if (audioRecordingService.isRecording()) {
-        await audioRecordingService.stopRecording();
-      }
-      
-      await interviewService.endInterview(sessionId);
-      onInterviewEnd();
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Error ending interview:', error);
-      onInterviewEnd();
-      navigate('/dashboard');
+  const handleEndInterview = async (reportId?: string) => {
+    speechService.stop();
+    if (audioRecordingService.isRecording()) {
+      await audioRecordingService.stopRecording();
     }
+    
+    if (!reportId) {
+      try {
+        await interviewService.endInterview(sessionId);
+      } catch (error) {
+        console.error('Error ending interview:', error);
+      }
+    }
+
+    onInterviewEnd();
+    navigate('/dashboard');
   };
 
   return (
@@ -191,7 +177,7 @@ const InterviewRoom: React.FC<InterviewRoomProps> = ({
           </div>
           
           <Button
-            onClick={handleEndInterview}
+            onClick={() => handleEndInterview()}
             variant="destructive"
             className="bg-red-500 hover:bg-red-600"
           >
@@ -318,11 +304,12 @@ const InterviewRoom: React.FC<InterviewRoomProps> = ({
                 </Button>
               </div>
               
-              <div className="mt-4 text-center text-sm text-gray-600">
+              <div className="mt-4 text-center text-sm text-gray-600 h-5">
                 {isAISpeaking && "AI is speaking..."}
-                {isListening && "Listening to your response..."}
+                {isListening && "Listening... Click mic to stop."}
                 {isProcessing && "Processing your answer..."}
-                {!isAISpeaking && !isListening && !isProcessing && "Click the microphone to respond"}
+                {!isAISpeaking && !isListening && !isProcessing && isMicOn && "Click the microphone to respond"}
+                {!isMicOn && "Microphone is off"}
               </div>
             </CardContent>
           </Card>

@@ -7,8 +7,7 @@ export interface StartInterviewParams {
   name: string;
   role: string;
   experience: string;
-  resume_text?: string;
-  resume_file?: File;
+  [key: string]: any; // Allow other mock interview settings
 }
 
 export interface SubmitAnswerParams {
@@ -23,35 +22,29 @@ export interface InterviewResponse {
   next_question?: string;
   message?: string;
   is_complete?: boolean;
+  report_id?: string;
+  overall_score?: number;
 }
 
 export const interviewService = {
   async startInterview(params: StartInterviewParams): Promise<InterviewResponse> {
     const formData = new FormData();
-    formData.append('name', params.name);
-    formData.append('role', params.role);
-    formData.append('experience', params.experience);
-    
-    if (params.resume_text) {
-      formData.append('resume_text', params.resume_text);
-    }
-    
-    if (params.resume_file) {
-      formData.append('resume_file', params.resume_file);
-    }
-
-    const headers = getApiHeaders();
-    // Remove Content-Type for FormData - browser will set it automatically with boundary
-    const formDataHeaders: HeadersInit = {};
-    Object.entries(headers).forEach(([key, value]) => {
-      if (key !== 'Content-Type') {
-        (formDataHeaders as any)[key] = value;
-      }
+    Object.keys(params).forEach(key => {
+        const value = params[key];
+        if (key === 'resume_file' && value instanceof File) {
+            formData.append(key, value);
+        } else if (value !== undefined && value !== null) {
+            if (Array.isArray(value)) {
+                value.forEach(item => formData.append(`${key}[]`, String(item)));
+            } else {
+                formData.append(key, String(value));
+            }
+        }
     });
 
+    // We are not using JWT, so we don't need getApiHeaders
     const response = await fetch(`${API_URL}/interview/start_interview`, {
       method: 'POST',
-      headers: formDataHeaders,
       body: formData,
     });
 
@@ -65,7 +58,7 @@ export const interviewService = {
   async submitAnswer(params: SubmitAnswerParams): Promise<InterviewResponse> {
     const response = await fetch(`${API_URL}/interview/submit_answer`, {
       method: 'POST',
-      headers: getApiHeaders(),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
 
@@ -80,19 +73,8 @@ export const interviewService = {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio.webm');
 
-    const headers = getApiHeaders();
-    // Remove Content-Type for FormData - browser will set it automatically with boundary
-    const formDataHeaders: HeadersInit = {};
-    Object.entries(headers).forEach(([key, value]) => {
-      if (key !== 'Content-Type') {
-        (formDataHeaders as any)[key] = value;
-      }
-    });
-
-    // Use the correct endpoint that matches your Flask backend
     const response = await fetch(`${API_URL}/transcribe`, {
       method: 'POST',
-      headers: formDataHeaders,
       body: formData,
     });
 
@@ -106,12 +88,13 @@ export const interviewService = {
   async endInterview(sessionId: string): Promise<{ report_id: string; overall_score: number }> {
     const response = await fetch(`${API_URL}/interview/end_interview`, {
       method: 'POST',
-      headers: getApiHeaders(),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId }),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to end interview: ${response.statusText}`);
+      const error = await response.json().catch(() => ({}))
+      throw new Error(`Failed to end interview: ${error.message || response.statusText}`);
     }
 
     return response.json();

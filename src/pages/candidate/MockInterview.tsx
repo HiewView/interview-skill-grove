@@ -1,10 +1,13 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Brain, Code, Users, Play } from 'lucide-react';
+import { ArrowLeft, Clock, Brain, Code, Users, Play, Loader2 } from 'lucide-react';
+import { interviewService } from '../../services/interviewService';
+import { useToast } from '../../hooks/use-toast';
 
 const MockInterview: React.FC = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState({
     interviewType: '',
     duration: '30',
@@ -35,9 +38,43 @@ const MockInterview: React.FC = () => {
     }));
   };
 
-  const handleStartInterview = () => {
-    console.log('Starting mock interview with settings:', settings);
-    navigate('/candidate/interview', { state: { mockInterview: true, settings } });
+  const handleStartInterview = async () => {
+    if (!settings.interviewType) {
+      toast({
+        title: "Please select an interview type",
+        variant: "destructive"
+      });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await interviewService.startInterview({
+        name: 'Candidate',
+        role: settings.interviewType,
+        experience: '2', // Placeholder, can be added to form later
+        ...settings,
+      });
+      
+      if (response.session_id && response.first_question) {
+        navigate('/candidate/interview', { 
+          state: { 
+            sessionId: response.session_id, 
+            firstQuestion: response.first_question,
+          } 
+        });
+      } else {
+        throw new Error('Failed to initialize interview session.');
+      }
+    } catch (error) {
+      console.error('Error starting interview:', error);
+      toast({
+        title: "Error",
+        description: "Could not start interview. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -46,7 +83,7 @@ const MockInterview: React.FC = () => {
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Link 
-            to="/candidate/dashboard"
+            to="/dashboard"
             className="inline-flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -200,11 +237,15 @@ const MockInterview: React.FC = () => {
           <div className="text-center">
             <button
               onClick={handleStartInterview}
-              disabled={!settings.interviewType}
-              className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-full text-lg font-semibold hover:from-orange-500 hover:to-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!settings.interviewType || isLoading}
+              className="inline-flex items-center justify-center space-x-3 px-8 py-4 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-full text-lg font-semibold hover:from-orange-500 hover:to-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Play className="w-6 h-6" />
-              <span>Start Mock Interview</span>
+              {isLoading ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <Play className="w-6 h-6" />
+              )}
+              <span>{isLoading ? 'Starting...' : 'Start Mock Interview'}</span>
             </button>
             <p className="text-gray-500 text-sm mt-4">
               Duration: {settings.duration} minutes • Difficulty: {settings.difficulty}

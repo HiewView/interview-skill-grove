@@ -1,51 +1,78 @@
 
-// Text-to-Speech service for AI questions
-export class SpeechService {
-  private synth: SpeechSynthesis;
-  private currentUtterance: SpeechSynthesisUtterance | null = null;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  constructor() {
-    this.synth = window.speechSynthesis;
-  }
+export class SpeechService {
+  private currentAudio: HTMLAudioElement | null = null;
+  private isSpeakingFlag = false;
 
   async speak(text: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // Cancel any ongoing speech
-      this.stop();
+    this.stop();
 
-      this.currentUtterance = new SpeechSynthesisUtterance(text);
-      this.currentUtterance.rate = 0.9;
-      this.currentUtterance.pitch = 1;
-      this.currentUtterance.volume = 1;
+    try {
+      const response = await fetch(`${API_URL}/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
 
-      // Try to get a female voice for AI interviewer
-      const voices = this.synth.getVoices();
-      const femaleVoice = voices.find(voice => 
-        voice.name.toLowerCase().includes('female') || 
-        voice.name.toLowerCase().includes('zira') ||
-        voice.name.toLowerCase().includes('aria')
-      );
-      
-      if (femaleVoice) {
-        this.currentUtterance.voice = femaleVoice;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch TTS audio' }));
+        throw new Error(errorData.error);
       }
 
-      this.currentUtterance.onend = () => resolve();
-      this.currentUtterance.onerror = (event) => reject(event.error);
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      this.currentAudio = new Audio(audioUrl);
+      this.isSpeakingFlag = true;
 
-      this.synth.speak(this.currentUtterance);
-    });
+      return new Promise((resolve, reject) => {
+        if (!this.currentAudio) {
+          this.cleanup();
+          return reject("Audio not initialized");
+        }
+        this.currentAudio.onended = () => {
+          this.cleanup();
+          resolve();
+        };
+        this.currentAudio.onerror = (e) => {
+          console.error('Audio playback error', e);
+          this.cleanup();
+          reject(e);
+        };
+        this.currentAudio.play().catch(e => {
+            console.error('Audio play failed', e);
+            this.cleanup();
+            reject(e);
+        });
+      });
+    } catch (error) {
+      this.cleanup();
+      console.error('Error in speak method:', error);
+      throw error;
+    }
   }
 
   stop(): void {
-    if (this.synth.speaking) {
-      this.synth.cancel();
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.cleanup();
     }
-    this.currentUtterance = null;
   }
 
+  private cleanup() {
+    if (this.currentAudio) {
+      // Check if src is a blob URL before revoking
+      if (this.currentAudio.src.startsWith('blob:')) {
+        URL.revokeObjectURL(this.currentAudio.src);
+      }
+      this.currentAudio = null;
+    }
+    this.isSpeakingFlag = false;
+  }
+  
   isSpeaking(): boolean {
-    return this.synth.speaking;
+    return this.isSpeakingFlag;
   }
 }
 
