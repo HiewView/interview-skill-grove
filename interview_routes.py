@@ -17,6 +17,9 @@ interview_bp = Blueprint('interview', __name__)
 llm = ChatGroq(model="llama3-70b-8192", temperature=0.7, max_retries=2)
 VOICE = "en-US-AriaNeural"
 
+# In-memory store as a fallback for when MongoDB is not available
+in_memory_sessions = {}
+
 @interview_bp.route('/start_interview', methods=['POST'])
 def start_interview():
     mock_user_id = "mock-candidate-123"
@@ -45,11 +48,20 @@ def start_interview():
     db.session.add(session)
     db.session.commit()
 
-    mongo.db.interview_details.insert_one({
-        'session_id': session.id,
-        'user_id': mock_user_id,
-        'settings': settings
-    })
+    # Store in-memory for resilience
+    in_memory_sessions[session.id] = {
+        'settings': settings,
+        'qa_records': []
+    }
+
+    try:
+        mongo.db.interview_details.insert_one({
+            'session_id': session.id,
+            'user_id': mock_user_id,
+            'settings': settings
+        })
+    except Exception as e:
+        current_app.logger.warning(f"MongoDB not available, could not save interview details: {e}")
     
     prompt = f"""You are a friendly AI Interviewer. A candidate is starting a mock interview.
 Here are their preferences:
@@ -92,18 +104,42 @@ def submit_answer():
         'answer': data['answer'],
         'timestamp': datetime.utcnow()
     }
-    mongo.db.interview_qa.insert_one(qa_data)
     
-    # Check for end condition (e.g., max questions) - simple for now
-    question_count = mongo.db.interview_qa.count_documents({'session_id': session.id})
+    # Update in-memory store
+    if session.id in in_memory_sessions:
+        if 'qa_records' not in in_memory_sessions[session.id]:
+            in_memory_sessions[session.id]['qa_records'] = []
+        in_memory_sessions[session.id]['qa_records'].append(qa_data)
+
+    try:
+        mongo.db.interview_qa.insert_one(qa_data)
+    except Exception as e:
+        current_app.logger.warning(f"MongoDB not available, could not save Q&A record: {e}")
+
+    # Fetch data for prompt generation, with fallback to in-memory
+    session_details_doc = None
+    qa_records = []
+    settings = {}
+    
+    try:
+        session_details_doc = mongo.db.interview_details.find_one({'session_id': session.id})
+        qa_records = list(mongo.db.interview_qa.find({'session_id': session.id}))
+    except Exception as e:
+        current_app.logger.warning(f"MongoDB not available, could not read session data: {e}")
+
+    if session_details_doc and session_details_doc.get('settings'):
+        settings = session_details_doc.get('settings')
+    elif session.id in in_memory_sessions and in_memory_sessions[session.id].get('settings'):
+        settings = in_memory_sessions[session.id].get('settings')
+
+    if not qa_records and session.id in in_memory_sessions and in_memory_sessions[session.id].get('qa_records'):
+        qa_records = in_memory_sessions[session.id].get('qa_records')
+    
+    question_count = len(qa_records)
     if question_count >= 10: # End after 10 questions
         return generate_report(session.id)
 
     # Generate next question
-    session_details_doc = mongo.db.interview_details.find_one({'session_id': session.id})
-    settings = session_details_doc.get('settings', {}) if session_details_doc else {}
-    
-    qa_records = list(mongo.db.interview_qa.find({'session_id': session.id}))
     conversation_history = "\n".join([f"Q: {qa['question']}\nA: {qa['answer']}" for qa in qa_records])
 
     prompt = f"""You are an AI Interviewer in a mock interview.
@@ -228,20 +264,30 @@ def request_report_generation(session_id):
 def generate_report(session_id):
     """Generate interview report based on Q&A history"""
     session = InterviewSession.query.get(session_id)
-    qa_records = list(mongo.db.interview_qa.find({'session_id': session_id}))
+    qa_records = []
     
-    # Check if report already exists in MongoDB
-    existing_report = mongo.db.interview_reports.find_one({"session_id": session_id})
-    
-    if existing_report:
-        # Return existing report if already generated
-        existing_report["_id"] = str(existing_report["_id"])
-        return jsonify({
-            "report_id": existing_report["_id"],
-            "overall_score": existing_report["overall_score"],
-            "message": "Existing report retrieved"
-        }), 200
-    
+    try:
+        # Check if report already exists in MongoDB
+        existing_report = mongo.db.interview_reports.find_one({"session_id": session_id})
+        if existing_report:
+            existing_report["_id"] = str(existing_report["_id"])
+            return jsonify({
+                "report_id": existing_report["_id"],
+                "overall_score": existing_report.get("overall_score"),
+                "message": "Existing report retrieved"
+            }), 200
+        
+        qa_records = list(mongo.db.interview_qa.find({'session_id': session_id}))
+    except Exception as e:
+        current_app.logger.warning(f"MongoDB not available for report generation: {e}")
+
+    # Fallback to in-memory store
+    if not qa_records and session_id in in_memory_sessions and in_memory_sessions[session_id].get('qa_records'):
+        qa_records = in_memory_sessions[session_id].get('qa_records')
+
+    if not qa_records:
+        return jsonify({"error": "No interview data found to generate a report."}), 404
+        
     # If no existing report, generate one using LLM
     qa_text = ""
     qa_details = []
@@ -387,17 +433,30 @@ def generate_report(session_id):
         "qa_details": qa_details
     }
     
-    report_id = mongo.db.interview_reports.insert_one(report_data).inserted_id
-    
-    # Update session with score
-    session.score = overall_score
-    db.session.commit()
-    
-    return jsonify({
-        "report_id": str(report_id),
-        "overall_score": overall_score,
-        "message": "Interview completed and report generated"
-    }), 201
+    try:
+        report_id_obj = mongo.db.interview_reports.insert_one(report_data).inserted_id
+        report_id = str(report_id_obj)
+        
+        # Update session with score
+        session.score = overall_score
+        db.session.commit()
+
+        # Clean up in-memory store
+        if session_id in in_memory_sessions:
+            del in_memory_sessions[session_id]
+
+        return jsonify({
+            "report_id": report_id,
+            "overall_score": overall_score,
+            "message": "Interview completed and report generated"
+        }), 201
+    except Exception as e:
+        current_app.logger.error(f"Could not save report to MongoDB: {e}")
+        return jsonify({
+            "report_id": None,
+            "overall_score": overall_score,
+            "message": "Interview completed, but the report could not be saved to the database."
+        }), 201
 
 @interview_bp.route('/compare-candidates/<template_id>', methods=['GET'])
 def compare_candidates(template_id):
