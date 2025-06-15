@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Brain, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { API_URL } from '../utils/apiUtils';
 
 const Login: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -19,17 +20,36 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      // TODO: Implement actual authentication
-      console.log('Login attempt:', formData);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // For now, just navigate to dashboard
+      // Call backend login API
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Try to show backend-provided error
+        setError(data?.error || "Login failed. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Store token and user info in localStorage, as expected everywhere else
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('user_info', JSON.stringify(data.user));
+      setIsLoading(false);
+
+      // Redirect to dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError('Invalid email or password');
-    } finally {
+      setError('Network error. Please try again.');
       setIsLoading(false);
     }
   };
@@ -162,3 +182,4 @@ const Login: React.FC = () => {
 };
 
 export default Login;
+
